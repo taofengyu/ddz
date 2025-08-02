@@ -43,12 +43,53 @@ class GameProvider extends ChangeNotifier {
   List<PlayingCard> get lastPlay => _lastPlay;
   PlayerType? get lastPlayer => _lastPlayer;
 
+  // 记录每个玩家最后一次出牌（包括过牌）
+  bool _shouldContinuePlay = false; // 标记是否应该继续出牌
+
+  // 记录每个玩家的最后动作类型
+  Map<PlayerType, String> _lastAction = {}; // 'play' 或 'pass'
+
   List<PlayingCard> get leftLastPlay =>
       _lastPlayer == PlayerType.leftAI ? _lastPlay : [];
   List<PlayingCard> get playerLastPlay =>
       _lastPlayer == PlayerType.player ? _lastPlay : [];
   List<PlayingCard> get rightLastPlay =>
       _lastPlayer == PlayerType.rightAI ? _lastPlay : [];
+
+  // 判断是否应该显示"要不起"
+  bool get shouldShowLeftPass {
+    bool result =
+        _lastPlay.isNotEmpty && _lastAction[PlayerType.leftAI] == 'pass';
+    print('shouldShowLeftPass: $result');
+    print('  _lastPlayer: $_lastPlayer');
+    print('  _lastPlay.isNotEmpty: ${_lastPlay.isNotEmpty}');
+    print(
+        '  _lastAction[PlayerType.leftAI]: ${_lastAction[PlayerType.leftAI]}');
+    print('  leftLastPlay.isEmpty: ${leftLastPlay.isEmpty}');
+    return result;
+  }
+
+  bool get shouldShowPlayerPass {
+    bool result =
+        _lastPlay.isNotEmpty && _lastAction[PlayerType.player] == 'pass';
+    print('shouldShowPlayerPass: $result');
+    print('  _lastPlayer: $_lastPlayer');
+    print('  _lastPlay.isNotEmpty: ${_lastPlay.isNotEmpty}');
+    print(
+        '  _lastAction[PlayerType.player]: ${_lastAction[PlayerType.player]}');
+    return result;
+  }
+
+  bool get shouldShowRightPass {
+    bool result =
+        _lastPlay.isNotEmpty && _lastAction[PlayerType.rightAI] == 'pass';
+    print('shouldShowRightPass: $result');
+    print('  _lastPlayer: $_lastPlayer');
+    print('  _lastPlay.isNotEmpty: ${_lastPlay.isNotEmpty}');
+    print(
+        '  _lastAction[PlayerType.rightAI]: ${_lastAction[PlayerType.rightAI]}');
+    return result;
+  }
 
   // 当前玩家
   PlayerType _currentPlayer = PlayerType.player;
@@ -108,6 +149,7 @@ class GameProvider extends ChangeNotifier {
     _currentPlay = [];
     _lastPlay = [];
     _lastPlayer = null;
+    _shouldContinuePlay = false;
     _currentPlayer = PlayerType.player;
     _landlord = null;
     _selectedCards = [];
@@ -116,6 +158,7 @@ class GameProvider extends ChangeNotifier {
     _maxBid = 0;
     _maxBidder = null;
     _passCount = 0;
+    _lastAction.clear(); // 清空最后动作记录
 
     // 重置底分和倍数
     _baseScore = 2;
@@ -383,16 +426,47 @@ class GameProvider extends ChangeNotifier {
       }
     }
 
+    // 记录过牌状态 - 保持上一次出牌的内容，不清空
+    // _lastPlay 保持为需要压过的牌，不改变
+    // _lastPlayer 保持为出牌的玩家，不改变
+    _lastAction[PlayerType.player] = 'pass'; // 记录玩家过牌
+
+    // 立即通知UI更新，显示"要不起"
+    notifyListeners();
+
+    print('玩家过牌后状态:');
+    print(
+        '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+    print(
+        '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+    print('  _lastPlayer: $_lastPlayer');
+    print('  _lastAction: $_lastAction');
+    print('  shouldShowPlayerPass: ${shouldShowPlayerPass}');
+
     _passCount++;
     _nextPlayer();
   }
 
   // 出选中的牌
   void _playSelectedCards() {
+    print(
+        '玩家出牌: ${_selectedCards.map((c) => '${c.rank}(${c.value})').toList()}');
+
+    // 清空上家的过牌状态
+    _lastAction.clear();
+
     _currentPlay = List.from(_selectedCards);
     _lastPlay = List.from(_selectedCards); // 记录最后出牌
     _lastPlayer = PlayerType.player; // 记录最后出牌的人
+    _lastAction[PlayerType.player] = 'play'; // 记录玩家出牌
     _passCount = 0; // 重置过牌计数
+    print('玩家出牌后状态:');
+    print(
+        '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+    print(
+        '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+    print('  _lastPlayer: $_lastPlayer');
+    print('  _lastAction: $_lastAction');
 
     // 检查是否为炸弹
     CardCombination combination = CardCombination.analyze(_selectedCards);
@@ -426,8 +500,29 @@ class GameProvider extends ChangeNotifier {
   void _nextPlayer() {
     // 检查是否连续两人过牌
     if (_passCount >= 2) {
+      print('连续两人过牌，开始新一轮');
+      print(
+          '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+      print(
+          '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+      print('  _lastPlayer: $_lastPlayer');
+      print('  _lastAction: $_lastAction');
+
+      // 开始新一轮，清空所有相关状态
       _currentPlay = []; // 清空当前出牌
+      _lastPlay = []; // 清空最后出牌
+      _lastPlayer = null; // 清空最后出牌的玩家
+      _lastAction.clear(); // 清空最后动作记录
       _passCount = 0;
+      _shouldContinuePlay = true; // 标记应该继续出牌
+
+      print('新一轮开始后的状态:');
+      print(
+          '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+      print(
+          '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+      print('  _lastPlayer: $_lastPlayer');
+      print('  _lastAction: $_lastAction');
     }
 
     switch (_currentPlayer) {
@@ -456,12 +551,28 @@ class GameProvider extends ChangeNotifier {
 
       // 改进的AI逻辑
       List<PlayingCard> playCards = _getAIPlay(aiCards);
+      print(
+          'AI决策结果: ${playCards.map((c) => '${c.rank}(${c.value})').toList()}');
 
       if (playCards.isNotEmpty) {
+        print(
+            'AI出牌: ${playCards.map((c) => '${c.rank}(${c.value})').toList()}');
+
+        // 清空上家的过牌状态
+        _lastAction.clear();
+
         _currentPlay = playCards;
         _lastPlay = List.from(playCards); // 记录最后出牌
         _lastPlayer = _currentPlayer; // 记录最后出牌的人
+        _lastAction[_currentPlayer] = 'play'; // 记录AI出牌
         _passCount = 0; // 重置过牌计数
+        print('AI出牌后状态:');
+        print(
+            '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+        print(
+            '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+        print('  _lastPlayer: $_lastPlayer');
+        print('  _lastAction: $_lastAction');
 
         // 检查是否为炸弹
         CardCombination combination = CardCombination.analyze(playCards);
@@ -502,6 +613,25 @@ class GameProvider extends ChangeNotifier {
       } else {
         // AI选择过，增加过牌计数
         _passCount++;
+        print('AI实际过牌，_passCount: $_passCount');
+
+        // 记录过牌状态 - 保持上一次出牌的内容，不清空
+        // _lastPlayer 保持为出牌的玩家，不改变
+        // _lastPlay 保持为需要压过的牌，不改变
+        _lastAction[_currentPlayer] = 'pass'; // 记录AI过牌
+
+        // 立即通知UI更新，显示"要不起"
+        notifyListeners();
+
+        print('AI过牌后状态:');
+        print(
+            '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+        print(
+            '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+        print('  _lastPlayer: $_lastPlayer');
+        print('  _lastAction: $_lastAction');
+        print('  shouldShowLeftPass: ${shouldShowLeftPass}');
+        print('  shouldShowRightPass: ${shouldShowRightPass}');
       }
 
       _nextPlayer();
@@ -510,34 +640,54 @@ class GameProvider extends ChangeNotifier {
 
   // 改进的AI出牌逻辑
   List<PlayingCard> _getAIPlay(List<PlayingCard> aiCards) {
-    if (_currentPlay.isEmpty) {
-      // 第一手，出最小的牌
+    if (_currentPlay.isEmpty && !_shouldContinuePlay) {
+      // 真正的第一手，出最小的牌
       return _getBestFirstPlay(aiCards);
     }
 
     // 尝试找到能压过上家的牌
     CardCombination currentCombination = CardCombination.analyze(_currentPlay);
+    print('当前出牌: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+    print('当前组合类型: ${currentCombination.type}');
+    print('当前组合权重: ${currentCombination.weight}');
+    print('AI手牌: ${aiCards.map((c) => '${c.rank}(${c.value})').toList()}');
+    print('_shouldContinuePlay: $_shouldContinuePlay');
+    print('_currentPlay.isEmpty: ${_currentPlay.isEmpty}');
 
     // 尝试相同牌型
     List<PlayingCard> sameTypePlay =
         _findSameTypePlay(aiCards, currentCombination);
     if (sameTypePlay.isNotEmpty) {
+      print(
+          'AI找到相同牌型: ${sameTypePlay.map((c) => '${c.rank}(${c.value})').toList()}');
       return sameTypePlay;
     }
 
     // 尝试炸弹
     List<PlayingCard> bombPlay = _findBombPlay(aiCards);
     if (bombPlay.isNotEmpty) {
+      print('AI找到炸弹: ${bombPlay.map((c) => '${c.rank}(${c.value})').toList()}');
       return bombPlay;
     }
+    print('AI没有找到炸弹');
 
     // 尝试王炸
     List<PlayingCard> rocketPlay = _findRocketPlay(aiCards);
     if (rocketPlay.isNotEmpty) {
+      print(
+          'AI找到王炸: ${rocketPlay.map((c) => '${c.rank}(${c.value})').toList()}');
       return rocketPlay;
     }
+    print('AI没有找到王炸');
 
     // 找不到能压过的牌，选择过
+    // 只有当没有需要压过的牌且应该继续出牌时，才出单张牌
+    if (_currentPlay.isEmpty && _shouldContinuePlay) {
+      print('AI开始新一轮，出最小的牌');
+      _shouldContinuePlay = false; // 重置标志
+      return _getBestFirstPlay(aiCards);
+    }
+    print('AI选择过牌');
     return [];
   }
 
@@ -583,11 +733,21 @@ class GameProvider extends ChangeNotifier {
   // 寻找更大的单牌
   List<PlayingCard> _findLargerSingle(
       List<PlayingCard> aiCards, int targetWeight) {
+    print('AI寻找更大的单牌，目标权重: $targetWeight');
+    print('AI手牌: ${aiCards.map((c) => '${c.rank}(${c.value})').toList()}');
+    print('AI手牌数量: ${aiCards.length}');
+
     for (int i = aiCards.length - 1; i >= 0; i--) {
+      print(
+          '检查卡片: ${aiCards[i].rank}(${aiCards[i].value}) vs 目标: $targetWeight');
       if (aiCards[i].value > targetWeight) {
+        print('找到更大的牌: ${aiCards[i].rank}(${aiCards[i].value})');
         return [aiCards[i]];
+      } else {
+        print('卡片 ${aiCards[i].rank}(${aiCards[i].value}) 不大于目标 $targetWeight');
       }
     }
+    print('没有找到更大的牌');
     return [];
   }
 
@@ -665,7 +825,54 @@ class GameProvider extends ChangeNotifier {
   // 寻找更大的顺子
   List<PlayingCard> _findLargerStraight(
       List<PlayingCard> aiCards, int targetWeight, int length) {
-    // 简化实现：暂时返回空
+    print('AI寻找更大的顺子，目标权重: $targetWeight，长度: $length');
+    print('AI手牌: ${aiCards.map((c) => '${c.rank}(${c.value})').toList()}');
+
+    // 过滤掉2和王，因为顺子不能包含这些牌
+    List<PlayingCard> validCards =
+        aiCards.where((card) => card.value < 15).toList();
+
+    if (validCards.length < length) {
+      print('AI手牌不足以组成顺子');
+      return [];
+    }
+
+    // 寻找所有可能的顺子
+    for (int start = 0; start <= validCards.length - length; start++) {
+      List<PlayingCard> potentialStraight = [];
+      bool isValidStraight = true;
+
+      for (int i = 0; i < length; i++) {
+        if (start + i >= validCards.length) {
+          isValidStraight = false;
+          break;
+        }
+
+        PlayingCard currentCard = validCards[start + i];
+        potentialStraight.add(currentCard);
+
+        // 检查是否连续
+        if (i > 0) {
+          PlayingCard prevCard = potentialStraight[i - 1];
+          if (currentCard.value != prevCard.value + 1) {
+            isValidStraight = false;
+            break;
+          }
+        }
+      }
+
+      if (isValidStraight && potentialStraight.length == length) {
+        // 检查是否比目标顺子大
+        int straightWeight = potentialStraight.last.value;
+        if (straightWeight > targetWeight) {
+          print(
+              'AI找到更大的顺子: ${potentialStraight.map((c) => '${c.rank}(${c.value})').toList()}');
+          return potentialStraight;
+        }
+      }
+    }
+
+    print('AI没有找到更大的顺子');
     return [];
   }
 
@@ -824,5 +1031,11 @@ class GameProvider extends ChangeNotifier {
       case PlayerType.rightAI:
         return '右家';
     }
+  }
+
+  @override
+  void dispose() {
+    // 清理所有监听器
+    super.dispose();
   }
 }

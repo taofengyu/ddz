@@ -6,14 +6,25 @@ import 'providers/game_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
   // 设置横屏模式
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
 
-  // 隐藏状态栏和操作栏
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // 隐藏状态栏和操作栏，但保留安全区域
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  // 设置系统UI覆盖样式，减少OpenGL相关警告
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarDividerColor: Colors.transparent,
+  ));
+
+  // 设置Flutter引擎选项以减少OpenGL警告
+  WidgetsFlutterBinding.ensureInitialized();
 
   runApp(const DDZApp());
 }
@@ -23,14 +34,34 @@ class DDZApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => GameProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<GameProvider>(
+          create: (context) => GameProvider(),
+        ),
+      ],
       child: MaterialApp(
         title: '斗地主',
         theme: ThemeData(
           primarySwatch: Colors.green,
           visualDensity: VisualDensity.adaptivePlatformDensity,
           fontFamily: 'PingFang SC',
+          // 设置应用主题以减少OpenGL相关警告
+          brightness: Brightness.light,
+          useMaterial3: false, // 禁用Material 3以减少渲染复杂性
+          // 禁用动画以减少OpenGL调用
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            },
+          ),
+          // 禁用阴影和动画效果
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              shadowColor: Colors.transparent,
+            ),
+          ),
         ),
         home: const HomeScreen(),
         debugShowCheckedModeBanner: false,

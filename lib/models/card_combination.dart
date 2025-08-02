@@ -47,7 +47,7 @@ class CardCombination {
       return CardCombination(
           cards: sortedCards,
           type: CombinationType.bomb,
-          weight: sortedCards[0].score + 100);
+          weight: sortedCards[0].value + 1000);
     }
 
     // 检查其他牌型

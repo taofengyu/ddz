@@ -9,6 +9,7 @@ class CardWidget extends StatelessWidget {
   final double width;
   final double height;
   final bool compactJoker; // 新增参数控制大小王是否使用紧凑显示
+  final bool showOnlyTopLeft; // 新增参数控制是否只显示左上角信息
 
   const CardWidget({
     super.key,
@@ -18,6 +19,7 @@ class CardWidget extends StatelessWidget {
     this.width = 60,
     this.height = 80,
     this.compactJoker = false, // 默认不使用紧凑显示
+    this.showOnlyTopLeft = false, // 默认显示完整信息
   });
 
   @override
@@ -73,6 +75,28 @@ class CardWidget extends StatelessWidget {
   }
 
   Widget _buildFaceUpCard() {
+    // 对于极小尺寸卡片，只显示单个字符
+    if (width < 20 || height < 25) {
+      return ClipRect(
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Center(
+            child: Text(
+              card.rank == Rank.smallJoker || card.rank == Rank.bigJoker
+                  ? 'J'
+                  : _getRankDisplay(card.rank),
+              style: TextStyle(
+                color: card.color,
+                fontSize: max(width * 0.4, 4),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     // 对于小尺寸卡片，只显示左上角信息
     if (width < 30 || height < 40) {
       return ClipRect(
@@ -80,30 +104,31 @@ class CardWidget extends StatelessWidget {
           width: width,
           height: height,
           child: Padding(
-            padding: EdgeInsets.all(width * 0.12), // 增加边距
+            padding: EdgeInsets.all(width * 0.06), // 进一步减少边距
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start, // 确保内容从顶部开始
               children: [
                 // 数字显示在左上角
                 if (card.rank == Rank.smallJoker || card.rank == Rank.bigJoker)
-                  _buildJokerDisplay(width * 0.4, 12) // 增大最小字体大小
+                  _buildJokerDisplay(width * 0.4, 10) // 调大字体大小
                 else
                   Text(
                     _getRankDisplay(card.rank),
                     style: TextStyle(
                       color: card.color,
-                      fontSize: max(width * 0.4, 8), // 增大字体
+                      fontSize: max(width * 0.4, 7), // 调大字体
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 // 花色显示在数字下面
-                if (card.suit != Suit.joker && height > 20)
+                if (card.suit != Suit.joker && height > 30)
                   Text(
                     _getSuitSymbol(card.suit),
                     style: TextStyle(
                       color: card.color,
-                      fontSize: max(width * 0.35, 7), // 增大字体
+                      fontSize: max(width * 0.3, 5), // 调大字体
                     ),
                   ),
               ],
@@ -113,57 +138,62 @@ class CardWidget extends StatelessWidget {
       );
     }
 
-    // 对于正常尺寸卡片，使用Stack精确定位
-    return ClipRect(
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Stack(
-          children: [
-            // 左上角 - 数字在上，花色在下
-            Positioned(
-              top: width * 0.08, // 增加与边框距离
-              left: width * 0.08, // 增加与边框距离
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 数字显示在左上角
-                  if (card.rank == Rank.smallJoker ||
-                      card.rank == Rank.bigJoker)
-                    _buildJokerDisplay(width * 0.25, 10) // 大小王特殊显示
-                  else
-                    Text(
-                      _getRankDisplay(card.rank),
-                      style: TextStyle(
-                        color: card.color,
-                        fontSize: max(width * 0.25, 10), // 增大字体
-                        fontWeight: FontWeight.bold,
-                      ),
+    // 对于正常尺寸卡片，根据showOnlyTopLeft参数决定显示方式
+    if (showOnlyTopLeft) {
+      // 只显示左上角信息
+      return ClipRect(
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Padding(
+            padding: EdgeInsets.all(width * 0.08),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 数字显示在左上角
+                if (card.rank == Rank.smallJoker || card.rank == Rank.bigJoker)
+                  _buildJokerDisplay(width * 0.25, 10) // 大小王特殊显示
+                else
+                  Text(
+                    _getRankDisplay(card.rank),
+                    style: TextStyle(
+                      color: card.color,
+                      fontSize: max(width * 0.25, 10), // 增大字体
+                      fontWeight: FontWeight.bold,
                     ),
-                  // 花色显示在数字下面
-                  if (card.suit != Suit.joker)
-                    Text(
-                      _getSuitSymbol(card.suit),
-                      style: TextStyle(
-                        color: card.color,
-                        fontSize: max(width * 0.18, 8), // 增大字体
-                      ),
+                  ),
+                // 花色显示在数字下面
+                if (card.suit != Suit.joker)
+                  Text(
+                    _getSuitSymbol(card.suit),
+                    style: TextStyle(
+                      color: card.color,
+                      fontSize: max(width * 0.18, 8), // 增大字体
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
-            // 右下角 - 旋转180度显示
-            Positioned(
-              bottom: width * 0.08, // 增加与边框距离
-              right: width * 0.08, // 增加与边框距离
-              child: Transform.rotate(
-                angle: 3.14159, // 180度
+          ),
+        ),
+      );
+    } else {
+      // 显示完整信息（左上角和右下角）
+      return ClipRect(
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            children: [
+              // 左上角 - 数字在上，花色在下
+              Positioned(
+                top: width * 0.08, // 增加与边框距离
+                left: width * 0.08, // 增加与边框距离
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 数字显示在左上角（旋转后变成右下角）
+                    // 数字显示在左上角
                     if (card.rank == Rank.smallJoker ||
                         card.rank == Rank.bigJoker)
                       _buildJokerDisplay(width * 0.25, 10) // 大小王特殊显示
@@ -188,11 +218,47 @@ class CardWidget extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-          ],
+              // 右下角 - 旋转180度显示
+              Positioned(
+                bottom: width * 0.08, // 增加与边框距离
+                right: width * 0.08, // 增加与边框距离
+                child: Transform.rotate(
+                  angle: 3.14159, // 180度
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 数字显示在左上角（旋转后变成右下角）
+                      if (card.rank == Rank.smallJoker ||
+                          card.rank == Rank.bigJoker)
+                        _buildJokerDisplay(width * 0.25, 10) // 大小王特殊显示
+                      else
+                        Text(
+                          _getRankDisplay(card.rank),
+                          style: TextStyle(
+                            color: card.color,
+                            fontSize: max(width * 0.25, 10), // 增大字体
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      // 花色显示在数字下面
+                      if (card.suit != Suit.joker)
+                        Text(
+                          _getSuitSymbol(card.suit),
+                          style: TextStyle(
+                            color: card.color,
+                            fontSize: max(width * 0.18, 8), // 增大字体
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   // 构建大小王的竖排显示
@@ -207,7 +273,7 @@ class CardWidget extends StatelessWidget {
             'J',
             style: TextStyle(
               color: card.color,
-              fontSize: max(fontSize * 0.45, minSize * 0.45), // 调小字体
+              fontSize: max(fontSize * 0.6, minSize * 0.6), // 调大字体
               fontWeight: FontWeight.w900,
               height: 0.85, // 减小行高
               shadows: [
@@ -223,7 +289,7 @@ class CardWidget extends StatelessWidget {
             'O',
             style: TextStyle(
               color: card.color,
-              fontSize: max(fontSize * 0.45, minSize * 0.45), // 调小字体
+              fontSize: max(fontSize * 0.6, minSize * 0.6), // 调大字体
               fontWeight: FontWeight.w900,
               height: 0.85, // 减小行高
               shadows: [
@@ -239,7 +305,7 @@ class CardWidget extends StatelessWidget {
             'K',
             style: TextStyle(
               color: card.color,
-              fontSize: max(fontSize * 0.45, minSize * 0.45), // 调小字体
+              fontSize: max(fontSize * 0.6, minSize * 0.6), // 调大字体
               fontWeight: FontWeight.w900,
               height: 0.85, // 减小行高
               shadows: [
@@ -255,7 +321,7 @@ class CardWidget extends StatelessWidget {
             'E',
             style: TextStyle(
               color: card.color,
-              fontSize: max(fontSize * 0.45, minSize * 0.45), // 调小字体
+              fontSize: max(fontSize * 0.6, minSize * 0.6), // 调大字体
               fontWeight: FontWeight.w900,
               height: 0.85, // 减小行高
               shadows: [
@@ -271,7 +337,7 @@ class CardWidget extends StatelessWidget {
             'R',
             style: TextStyle(
               color: card.color,
-              fontSize: max(fontSize * 0.45, minSize * 0.45), // 调小字体
+              fontSize: max(fontSize * 0.6, minSize * 0.6), // 调大字体
               fontWeight: FontWeight.w900,
               height: 0.85, // 减小行高
               shadows: [
