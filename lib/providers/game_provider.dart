@@ -45,9 +45,42 @@ class GameProvider extends ChangeNotifier {
 
   // 记录每个玩家最后一次出牌（包括过牌）
   bool _shouldContinuePlay = false; // 标记是否应该继续出牌
+  bool get shouldContinuePlay => _shouldContinuePlay;
 
   // 记录每个玩家的最后动作类型
   Map<PlayerType, String> _lastAction = {}; // 'play' 或 'pass'
+
+  // 标记是否应该显示过牌状态（一轮未结束时显示）
+  bool _shouldShowPassState = false;
+  bool get shouldShowPassState => _shouldShowPassState;
+
+  // 标记是否应该显示玩家过牌状态
+  bool _shouldShowPlayerPassState = false;
+  bool get shouldShowPlayerPassState => _shouldShowPlayerPassState;
+
+  // 标记是否应该显示左家过牌状态
+  bool _shouldShowLeftPassState = false;
+  bool get shouldShowLeftPassState => _shouldShowLeftPassState;
+
+  // 标记是否应该显示右家过牌状态
+  bool _shouldShowRightPassState = false;
+  bool get shouldShowRightPassState => _shouldShowRightPassState;
+
+  // 标记是否应该保持显示玩家的出牌状态
+  bool _shouldKeepPlayerPlayState = false;
+  bool get shouldKeepPlayerPlayState => _shouldKeepPlayerPlayState;
+
+  // 记录玩家最后一次出牌的内容
+  List<PlayingCard> _playerLastPlay = [];
+  List<PlayingCard> get playerLastPlayContent => _playerLastPlay;
+
+  // 记录左家最后一次出牌的内容
+  List<PlayingCard> _leftAILastPlay = [];
+  List<PlayingCard> get leftAILastPlayContent => _leftAILastPlay;
+
+  // 记录右家最后一次出牌的内容
+  List<PlayingCard> _rightAILastPlay = [];
+  List<PlayingCard> get rightAILastPlayContent => _rightAILastPlay;
 
   List<PlayingCard> get leftLastPlay =>
       _lastPlayer == PlayerType.leftAI ? _lastPlay : [];
@@ -159,6 +192,16 @@ class GameProvider extends ChangeNotifier {
     _maxBidder = null;
     _passCount = 0;
     _lastAction.clear(); // 清空最后动作记录
+
+    // 清空出牌区相关状态
+    _shouldShowPassState = false;
+    _shouldShowPlayerPassState = false;
+    _shouldShowLeftPassState = false;
+    _shouldShowRightPassState = false;
+    _shouldKeepPlayerPlayState = false;
+    _playerLastPlay.clear();
+    _leftAILastPlay.clear();
+    _rightAILastPlay.clear();
 
     // 重置底分和倍数
     _baseScore = 2;
@@ -416,7 +459,7 @@ class GameProvider extends ChangeNotifier {
   void pass() {
     if (_gameState != GameState.playing || _currentPlayer != PlayerType.player)
       return;
-    if (_currentPlay.isEmpty) return; // 第一手不能过
+    if (_currentPlay.isEmpty && !_shouldContinuePlay) return; // 第一手不能过
 
     // 清空选中的牌
     _selectedCards.clear();
@@ -426,10 +469,26 @@ class GameProvider extends ChangeNotifier {
       }
     }
 
-    // 记录过牌状态 - 保持上一次出牌的内容，不清空
-    // _lastPlay 保持为需要压过的牌，不改变
-    // _lastPlayer 保持为出牌的玩家，不改变
+    // 清空出牌区状态
+    print('玩家过牌，清空出牌区状态');
+    _shouldShowPassState = false; // 重置过牌状态显示标记
+    _shouldShowPlayerPassState = false; // 重置玩家过牌状态标记
+    _shouldShowLeftPassState = false; // 重置左家过牌状态标记
+    _shouldShowRightPassState = false; // 重置右家过牌状态标记
+    _shouldKeepPlayerPlayState = false; // 重置玩家出牌状态保持标记
+    _playerLastPlay.clear(); // 清空玩家出牌内容
+    _leftAILastPlay.clear(); // 清空左家出牌内容
+    _rightAILastPlay.clear(); // 清空右家出牌内容
+
+    // 如果开始新一轮，重置新一轮标记
+    if (_shouldContinuePlay) {
+      print('玩家过牌时开始新一轮，重置新一轮标记');
+      _shouldContinuePlay = false; // 重置新一轮标记
+    }
+
+    // 记录过牌状态
     _lastAction[PlayerType.player] = 'pass'; // 记录玩家过牌
+    _shouldShowPlayerPassState = true; // 标记应该显示玩家过牌状态
 
     // 立即通知UI更新，显示"要不起"
     notifyListeners();
@@ -442,8 +501,10 @@ class GameProvider extends ChangeNotifier {
     print('  _lastPlayer: $_lastPlayer');
     print('  _lastAction: $_lastAction');
     print('  shouldShowPlayerPass: ${shouldShowPlayerPass}');
+    print('  过牌前 _passCount: $_passCount');
 
     _passCount++;
+    print('  过牌后 _passCount: $_passCount');
     _nextPlayer();
   }
 
@@ -452,15 +513,39 @@ class GameProvider extends ChangeNotifier {
     print(
         '玩家出牌: ${_selectedCards.map((c) => '${c.rank}(${c.value})').toList()}');
 
-    // 清空上家的过牌状态
-    _lastAction.clear();
+    // 清空出牌区状态
+    print('玩家出牌，清空出牌区状态');
+    _shouldShowPassState = false; // 重置过牌状态显示标记
+    _shouldShowPlayerPassState = false; // 重置玩家过牌状态标记
+    _shouldShowLeftPassState = false; // 重置左家过牌状态标记
+    _shouldShowRightPassState = false; // 重置右家过牌状态标记
+    _shouldKeepPlayerPlayState = false; // 重置玩家出牌状态保持标记
+    _playerLastPlay.clear(); // 清空玩家出牌内容
+    _leftAILastPlay.clear(); // 清空左家出牌内容
+    _rightAILastPlay.clear(); // 清空右家出牌内容
 
+    // 如果开始新一轮，重置游戏状态
+    if (_shouldContinuePlay) {
+      print('玩家开始新一轮，重置游戏状态');
+      _currentPlay = [];
+      _lastPlay = [];
+      _lastPlayer = null;
+      _lastAction.clear();
+      _shouldContinuePlay = false;
+    }
+
+    // 记录新的出牌
     _currentPlay = List.from(_selectedCards);
     _lastPlay = List.from(_selectedCards); // 记录最后出牌
     _lastPlayer = PlayerType.player; // 记录最后出牌的人
     _lastAction[PlayerType.player] = 'play'; // 记录玩家出牌
     _passCount = 0; // 重置过牌计数
+    _shouldKeepPlayerPlayState = true; // 标记应该保持显示玩家的出牌状态
+    _playerLastPlay = List.from(_selectedCards); // 记录玩家出牌内容
     print('玩家出牌后状态:');
+    print('  _shouldKeepPlayerPlayState: $_shouldKeepPlayerPlayState');
+    print(
+        '  _playerLastPlay: ${_playerLastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
     print(
         '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
     print(
@@ -507,22 +592,28 @@ class GameProvider extends ChangeNotifier {
           '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
       print('  _lastPlayer: $_lastPlayer');
       print('  _lastAction: $_lastAction');
+      print('  _passCount: $_passCount');
 
-      // 开始新一轮，清空所有相关状态
-      _currentPlay = []; // 清空当前出牌
-      _lastPlay = []; // 清空最后出牌
-      _lastPlayer = null; // 清空最后出牌的玩家
-      _lastAction.clear(); // 清空最后动作记录
+      // 标记开始新一轮，但不立即清空出牌区状态
+      // 出牌区状态将在玩家下次操作时清空
+      _currentPlay = [];
+      _lastPlay = [];
+      _lastPlayer = null;
+      _lastAction.clear();
       _passCount = 0;
       _shouldContinuePlay = true; // 标记应该继续出牌
+      // 不清空过牌状态显示标记，保持出牌区显示
+      // 不清空玩家出牌状态保持标记，保持出牌区显示
+      // 不清空AI出牌内容，保持出牌区显示
 
-      print('新一轮开始后的状态:');
+      print('新一轮标记后的状态:');
       print(
           '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
       print(
           '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
       print('  _lastPlayer: $_lastPlayer');
       print('  _lastAction: $_lastAction');
+      print('  _passCount: $_passCount');
     }
 
     switch (_currentPlayer) {
@@ -558,14 +649,23 @@ class GameProvider extends ChangeNotifier {
         print(
             'AI出牌: ${playCards.map((c) => '${c.rank}(${c.value})').toList()}');
 
-        // 清空上家的过牌状态
-        _lastAction.clear();
-
+        // 记录新的出牌
         _currentPlay = playCards;
         _lastPlay = List.from(playCards); // 记录最后出牌
         _lastPlayer = _currentPlayer; // 记录最后出牌的人
         _lastAction[_currentPlayer] = 'play'; // 记录AI出牌
         _passCount = 0; // 重置过牌计数
+        _shouldContinuePlay = false; // 重置新一轮标记
+        // 不清空过牌状态显示标记，保持出牌区显示
+        // 不清空玩家出牌状态保持标记，保持出牌区显示
+        // 不清空玩家出牌内容，保持出牌区显示
+
+        // 记录AI的出牌内容
+        if (_currentPlayer == PlayerType.leftAI) {
+          _leftAILastPlay = List.from(playCards);
+        } else if (_currentPlayer == PlayerType.rightAI) {
+          _rightAILastPlay = List.from(playCards);
+        }
         print('AI出牌后状态:');
         print(
             '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
@@ -620,6 +720,13 @@ class GameProvider extends ChangeNotifier {
         // _lastPlay 保持为需要压过的牌，不改变
         _lastAction[_currentPlayer] = 'pass'; // 记录AI过牌
 
+        // 设置对应AI的过牌状态标记
+        if (_currentPlayer == PlayerType.leftAI) {
+          _shouldShowLeftPassState = true;
+        } else if (_currentPlayer == PlayerType.rightAI) {
+          _shouldShowRightPassState = true;
+        }
+
         // 立即通知UI更新，显示"要不起"
         notifyListeners();
 
@@ -632,6 +739,7 @@ class GameProvider extends ChangeNotifier {
         print('  _lastAction: $_lastAction');
         print('  shouldShowLeftPass: ${shouldShowLeftPass}');
         print('  shouldShowRightPass: ${shouldShowRightPass}');
+        print('  AI过牌前 _passCount: $_passCount');
       }
 
       _nextPlayer();
@@ -640,8 +748,15 @@ class GameProvider extends ChangeNotifier {
 
   // 改进的AI出牌逻辑
   List<PlayingCard> _getAIPlay(List<PlayingCard> aiCards) {
-    if (_currentPlay.isEmpty && !_shouldContinuePlay) {
-      // 真正的第一手，出最小的牌
+    // 如果开始新一轮，出最小的牌
+    if (_shouldContinuePlay) {
+      print('AI开始新一轮，出最小的牌');
+      return _getBestFirstPlay(aiCards);
+    }
+
+    // 如果没有需要压过的牌，出最小的牌
+    if (_currentPlay.isEmpty) {
+      print('AI没有需要压过的牌，出最小的牌');
       return _getBestFirstPlay(aiCards);
     }
 
@@ -681,12 +796,6 @@ class GameProvider extends ChangeNotifier {
     print('AI没有找到王炸');
 
     // 找不到能压过的牌，选择过
-    // 只有当没有需要压过的牌且应该继续出牌时，才出单张牌
-    if (_currentPlay.isEmpty && _shouldContinuePlay) {
-      print('AI开始新一轮，出最小的牌');
-      _shouldContinuePlay = false; // 重置标志
-      return _getBestFirstPlay(aiCards);
-    }
     print('AI选择过牌');
     return [];
   }
@@ -1006,6 +1115,43 @@ class GameProvider extends ChangeNotifier {
   // 重新开始游戏
   void restartGame() {
     _gameState = GameState.waiting;
+
+    // 清空所有游戏状态
+    _playerCards = [];
+    _leftAICards = [];
+    _rightAICards = [];
+    _landlordCards = [];
+    _currentPlay = [];
+    _lastPlay = [];
+    _lastPlayer = null;
+    _shouldContinuePlay = false;
+    _currentPlayer = PlayerType.player;
+    _landlord = null;
+    _selectedCards = [];
+    _winner = null;
+    _currentBid = 0;
+    _maxBid = 0;
+    _maxBidder = null;
+    _passCount = 0;
+    _lastAction.clear();
+
+    // 清空出牌区相关状态
+    _shouldShowPassState = false;
+    _shouldShowPlayerPassState = false;
+    _shouldShowLeftPassState = false;
+    _shouldShowRightPassState = false;
+    _shouldKeepPlayerPlayState = false;
+    _playerLastPlay.clear();
+    _leftAILastPlay.clear();
+    _rightAILastPlay.clear();
+
+    // 重置底分和倍数
+    _baseScore = 2;
+    _multiplier = 1;
+    _bombCount = 0;
+    _isSpring = false;
+    _isAntiSpring = false;
+
     notifyListeners();
   }
 

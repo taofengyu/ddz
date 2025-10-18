@@ -393,8 +393,9 @@ class _GameScreenState extends State<GameScreen> {
           Expanded(
             child: Align(
               alignment: Alignment.centerLeft,
-              child: (gameProvider.leftLastPlay.isNotEmpty ||
-                      gameProvider.shouldShowLeftPass)
+              child: (gameProvider.gameState == GameState.playing) &&
+                      (gameProvider.shouldShowLeftPassState ||
+                          gameProvider.leftAILastPlayContent.isNotEmpty)
                   ? LayoutBuilder(
                       builder: (context, constraints) {
                         // 保持卡片大小不变
@@ -410,29 +411,30 @@ class _GameScreenState extends State<GameScreen> {
 
                         // 计算需要多少行
                         int totalRows =
-                            (gameProvider.leftLastPlay!.length / cardsPerRow)
+                            (gameProvider.leftAILastPlayContent.length /
+                                    cardsPerRow)
                                 .ceil();
                         double rowHeight = cardHeight + 10; // 行高加上间距
 
                         // 对卡片按大小排序
-                        List<PlayingCard> sortedCards =
-                            List<PlayingCard>.from(gameProvider.leftLastPlay!);
+                        List<PlayingCard> sortedCards = List<PlayingCard>.from(
+                            gameProvider.leftAILastPlayContent);
                         sortedCards.sort((a, b) => a.value.compareTo(b.value));
 
                         // 调试输出
                         print(
                             'LeftAI - availableHeight: $availableHeight, totalRows: $totalRows, rowHeight: $rowHeight');
                         print(
-                            'LeftAI cards: ${gameProvider.leftLastPlay!.length}, sortedCards: ${sortedCards.length}');
+                            'LeftAI cards: ${gameProvider.leftAILastPlayContent.length}, sortedCards: ${sortedCards.length}');
                         print('LeftAI lastPlayer: ${gameProvider.lastPlayer}');
                         print('LeftAI gameState: ${gameProvider.gameState}');
 
                         // 检查是否有出牌数据
-                        if (gameProvider.leftLastPlay!.isEmpty) {
+                        if (gameProvider.leftAILastPlayContent.isEmpty) {
                           print('LeftAI: No cards to display');
                         } else {
                           print(
-                              'LeftAI: Has ${gameProvider.leftLastPlay!.length} cards to display');
+                              'LeftAI: Has ${gameProvider.leftAILastPlayContent.length} cards to display');
                         }
 
                         return Container(
@@ -440,7 +442,7 @@ class _GameScreenState extends State<GameScreen> {
                           height: availableHeight,
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: gameProvider.shouldShowLeftPass
+                            child: gameProvider.shouldShowLeftPassState
                                 ? Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 12, vertical: 6),
@@ -493,8 +495,24 @@ class _GameScreenState extends State<GameScreen> {
             child: Align(
               alignment: Alignment.bottomCenter, // 靠底部居中
 
-              child: (gameProvider.shouldShowPlayerPass ||
-                      gameProvider.playerLastPlay.isNotEmpty)
+              child: (() {
+                print('玩家区域显示条件检查:');
+                print(
+                    '  shouldShowPlayerPass: ${gameProvider.shouldShowPlayerPass}');
+                print(
+                    '  shouldShowPlayerPassState: ${gameProvider.shouldShowPlayerPassState}');
+                print(
+                    '  shouldKeepPlayerPlayState: ${gameProvider.shouldKeepPlayerPlayState}');
+                print(
+                    '  playerLastPlayContent.isNotEmpty: ${gameProvider.playerLastPlayContent.isNotEmpty}');
+                print(
+                    '  playerLastPlayContent: ${gameProvider.playerLastPlayContent.map((c) => '${c.rank}(${c.value})').toList()}');
+
+                return (gameProvider.gameState == GameState.playing) &&
+                    (gameProvider.shouldShowPlayerPassState ||
+                        (gameProvider.shouldKeepPlayerPlayState &&
+                            gameProvider.playerLastPlayContent.isNotEmpty));
+              })()
                   ? LayoutBuilder(
                       builder: (context, constraints) {
                         // 保持卡片大小不变
@@ -509,8 +527,10 @@ class _GameScreenState extends State<GameScreen> {
                         if (cardsPerRow <= 0) cardsPerRow = 1;
 
                         // 如果卡片数量少于每行能放的数量，使用实际卡片数量
-                        if (gameProvider.playerLastPlay.length < cardsPerRow) {
-                          cardsPerRow = gameProvider.playerLastPlay.length;
+                        if (gameProvider.playerLastPlayContent.length <
+                            cardsPerRow) {
+                          cardsPerRow =
+                              gameProvider.playerLastPlayContent.length;
                         }
 
                         // 确保cardsPerRow至少为1
@@ -518,13 +538,14 @@ class _GameScreenState extends State<GameScreen> {
 
                         // 计算需要多少行
                         int totalRows =
-                            (gameProvider.playerLastPlay.length / cardsPerRow)
+                            (gameProvider.playerLastPlayContent.length /
+                                    cardsPerRow)
                                 .ceil();
                         double rowHeight = cardHeight + 10; // 行高加上间距
 
                         // 调试输出
                         print(
-                            'Player cards: ${gameProvider.playerLastPlay.length}, maxWidth: ${constraints.maxWidth}, cardsPerRow: $cardsPerRow, totalRows: $totalRows');
+                            'Player cards: ${gameProvider.playerLastPlayContent.length}, maxWidth: ${constraints.maxWidth}, cardsPerRow: $cardsPerRow, totalRows: $totalRows');
 
                         // 调试居中计算
                         double totalRowWidth =
@@ -535,8 +556,8 @@ class _GameScreenState extends State<GameScreen> {
                             'Player - totalRowWidth: $totalRowWidth, centerOffset: $centerOffset');
 
                         // 对卡片按大小排序
-                        List<PlayingCard> sortedCards =
-                            List<PlayingCard>.from(gameProvider.playerLastPlay);
+                        List<PlayingCard> sortedCards = List<PlayingCard>.from(
+                            gameProvider.playerLastPlayContent);
                         sortedCards.sort((a, b) => a.value.compareTo(b.value));
 
                         return Container(
@@ -544,7 +565,8 @@ class _GameScreenState extends State<GameScreen> {
                           height: availableHeight,
                           child: Align(
                             alignment: Alignment.bottomCenter,
-                            child: gameProvider.shouldShowPlayerPass
+                            child: gameProvider.shouldShowPlayerPassState &&
+                                    gameProvider.shouldShowPlayerPass
                                 ? Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 12, vertical: 6),
@@ -563,7 +585,7 @@ class _GameScreenState extends State<GameScreen> {
                                       ),
                                     ),
                                   )
-                                : gameProvider.playerLastPlay.isNotEmpty
+                                : gameProvider.playerLastPlayContent.isNotEmpty
                                     ? SizedBox(
                                         width: constraints.maxWidth,
                                         height: totalRows * rowHeight + 15,
@@ -572,7 +594,8 @@ class _GameScreenState extends State<GameScreen> {
                                             for (int i = 0;
                                                 i <
                                                     gameProvider
-                                                        .playerLastPlay.length;
+                                                        .playerLastPlayContent
+                                                        .length;
                                                 i++)
                                               Positioned(
                                                 left: (i % cardsPerRow) *
@@ -609,9 +632,9 @@ class _GameScreenState extends State<GameScreen> {
           Expanded(
             child: Align(
               alignment: Alignment.centerRight,
-              child: (gameProvider.rightLastPlay != null &&
-                          gameProvider.rightLastPlay!.isNotEmpty) ||
-                      gameProvider.shouldShowRightPass
+              child: (gameProvider.gameState == GameState.playing) &&
+                      (gameProvider.shouldShowRightPassState ||
+                          gameProvider.rightAILastPlayContent.isNotEmpty)
                   ? LayoutBuilder(
                       builder: (context, constraints) {
                         // 保持卡片大小不变
@@ -627,28 +650,29 @@ class _GameScreenState extends State<GameScreen> {
 
                         // 计算需要多少行
                         int totalRows =
-                            (gameProvider.rightLastPlay!.length / cardsPerRow)
+                            (gameProvider.rightAILastPlayContent.length /
+                                    cardsPerRow)
                                 .ceil();
                         double rowHeight = cardHeight + 10; // 行高加上间距
 
                         // 对卡片按大小排序
-                        List<PlayingCard> sortedCards =
-                            List<PlayingCard>.from(gameProvider.rightLastPlay!);
+                        List<PlayingCard> sortedCards = List<PlayingCard>.from(
+                            gameProvider.rightAILastPlayContent);
                         sortedCards.sort((a, b) => a.value.compareTo(b.value));
 
                         // 检查是否有出牌数据
                         print(
                             'RightAI - availableHeight: $availableHeight, totalRows: $totalRows, rowHeight: $rowHeight');
                         print(
-                            'RightAI cards: ${gameProvider.rightLastPlay!.length}, sortedCards: ${sortedCards.length}');
+                            'RightAI cards: ${gameProvider.rightAILastPlayContent.length}, sortedCards: ${sortedCards.length}');
                         print('RightAI lastPlayer: ${gameProvider.lastPlayer}');
                         print('RightAI gameState: ${gameProvider.gameState}');
 
-                        if (gameProvider.rightLastPlay!.isEmpty) {
+                        if (gameProvider.rightAILastPlayContent.isEmpty) {
                           print('RightAI: No cards to display');
                         } else {
                           print(
-                              'RightAI: Has ${gameProvider.rightLastPlay!.length} cards to display');
+                              'RightAI: Has ${gameProvider.rightAILastPlayContent.length} cards to display');
                         }
 
                         // 调试输出
@@ -657,14 +681,14 @@ class _GameScreenState extends State<GameScreen> {
 
                         // 调试输出
                         print(
-                            'RightAI cards: ${gameProvider.rightLastPlay!.length}, sortedCards: ${sortedCards.length}');
+                            'RightAI cards: ${gameProvider.rightAILastPlayContent.length}, sortedCards: ${sortedCards.length}');
 
                         return Container(
                           width: constraints.maxWidth,
                           height: availableHeight,
                           child: Align(
                             alignment: Alignment.centerRight,
-                            child: gameProvider.shouldShowRightPass
+                            child: gameProvider.shouldShowRightPassState
                                 ? Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 12, vertical: 6),
@@ -994,7 +1018,8 @@ class _GameScreenState extends State<GameScreen> {
                     ElevatedButton(
                       onPressed:
                           (gameProvider.currentPlayer == PlayerType.player &&
-                                  gameProvider.lastPlay.isNotEmpty)
+                                  (gameProvider.lastPlay.isNotEmpty ||
+                                      gameProvider.shouldContinuePlay))
                               ? () {
                                   print(
                                       '不出按钮点击 - 当前玩家: ${gameProvider.currentPlayer}');
@@ -1002,6 +1027,8 @@ class _GameScreenState extends State<GameScreen> {
                                       '不出按钮点击 - lastPlay: ${gameProvider.lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
                                   print(
                                       '不出按钮点击 - currentPlay: ${gameProvider.currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
+                                  print(
+                                      '不出按钮点击 - shouldContinuePlay: ${gameProvider.shouldContinuePlay}');
                                   gameProvider.pass();
                                 }
                               : null,
