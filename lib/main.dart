@@ -3,8 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'providers/game_provider.dart';
+import 'services/audio_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 设置横屏模式
@@ -25,6 +26,9 @@ void main() {
 
   // 设置Flutter引擎选项以减少OpenGL警告
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化音频服务
+  await AudioService().initialize();
 
   runApp(const DDZApp());
 }

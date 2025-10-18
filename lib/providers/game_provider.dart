@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/card.dart';
 import '../models/card_combination.dart';
+import '../services/audio_service.dart';
 
 enum GameState {
   waiting, // 等待开始
@@ -239,6 +240,9 @@ class GameProvider extends ChangeNotifier {
     _sortCards(_leftAICards);
     _sortCards(_rightAICards);
 
+    // 播放发牌音效
+    AudioService().playCardDeal();
+
     _gameState = GameState.bidding;
     notifyListeners();
   }
@@ -288,6 +292,9 @@ class GameProvider extends ChangeNotifier {
     _maxBid = bidScore;
     _maxBidder = _currentPlayer;
 
+    // 播放叫分音效
+    AudioService().playBid();
+
     if (bidScore == 3) {
       // 叫3分直接成为地主
       _setLandlord(_currentPlayer);
@@ -300,6 +307,9 @@ class GameProvider extends ChangeNotifier {
   // 不叫分
   void passBid() {
     if (_gameState != GameState.bidding) return;
+
+    // 播放过牌音效
+    AudioService().playPass();
 
     _passCount++;
     if (_passCount >= 3) {
@@ -409,6 +419,9 @@ class GameProvider extends ChangeNotifier {
       _sortCards(_rightAICards);
     }
 
+    // 播放成为地主音效
+    AudioService().playLandlord();
+
     _gameState = GameState.playing;
     notifyListeners();
 
@@ -432,6 +445,8 @@ class GameProvider extends ChangeNotifier {
         _selectedCards.add(card);
         _playerCards[index] = _playerCards[index].copyWith(isSelected: true);
       }
+      // 播放选牌音效（选中和取消选中都播放）
+      AudioService().playCardSelect();
       notifyListeners();
     }
   }
@@ -452,6 +467,9 @@ class GameProvider extends ChangeNotifier {
       if (!combination.canBeat(currentCombination)) return;
     }
 
+    // 播放出牌音效
+    AudioService().playCardPlay();
+
     _playSelectedCards();
   }
 
@@ -460,6 +478,9 @@ class GameProvider extends ChangeNotifier {
     if (_gameState != GameState.playing || _currentPlayer != PlayerType.player)
       return;
     if (_currentPlay.isEmpty && !_shouldContinuePlay) return; // 第一手不能过
+
+    // 播放过牌音效
+    AudioService().playPass();
 
     // 清空选中的牌
     _selectedCards.clear();
@@ -574,6 +595,8 @@ class GameProvider extends ChangeNotifier {
       _winner = PlayerType.player;
       _gameState = GameState.finished;
       _updateScore();
+      // 播放胜利音效
+      AudioService().playWin();
       notifyListeners();
       return;
     }
@@ -699,6 +722,8 @@ class GameProvider extends ChangeNotifier {
           _winner = _currentPlayer;
           _gameState = GameState.finished;
           _updateScore();
+          // 播放失败音效（AI获胜）
+          AudioService().playLose();
           notifyListeners();
           return;
         } else if (_currentPlayer == PlayerType.rightAI &&
@@ -707,6 +732,8 @@ class GameProvider extends ChangeNotifier {
           _winner = _currentPlayer;
           _gameState = GameState.finished;
           _updateScore();
+          // 播放失败音效（AI获胜）
+          AudioService().playLose();
           notifyListeners();
           return;
         }

@@ -28,9 +28,10 @@ class CardCombination {
   });
 
   static CardCombination analyze(List<PlayingCard> cards) {
-    if (cards.isEmpty)
+    if (cards.isEmpty) {
       return CardCombination(
           cards: [], type: CombinationType.invalid, weight: 0);
+    }
 
     // 按值排序
     List<PlayingCard> sortedCards = List.from(cards);
@@ -208,7 +209,9 @@ class CardCombination {
 
     for (int i = 0; i < cards.length; i += 3) {
       if (cards[i].value != cards[i + 1].value ||
-          cards[i + 1].value != cards[i + 2].value) return false;
+          cards[i + 1].value != cards[i + 2].value) {
+        return false;
+      }
       if (i > 0 && cards[i].value != cards[i - 3].value + 1) return false;
     }
 
@@ -317,10 +320,12 @@ class CardCombination {
     if (other.type == CombinationType.rocket) return false;
 
     // 炸弹可以压非炸弹
-    if (type == CombinationType.bomb && other.type != CombinationType.bomb)
+    if (type == CombinationType.bomb && other.type != CombinationType.bomb) {
       return true;
-    if (type == CombinationType.bomb && other.type == CombinationType.bomb)
+    }
+    if (type == CombinationType.bomb && other.type == CombinationType.bomb) {
       return weight > other.weight;
+    }
 
     // 不同牌型不能比较（除了炸弹和王炸）
     if (type != other.type) return false;

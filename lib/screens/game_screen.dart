@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/card_widget.dart';
 import '../models/card.dart';
+import '../services/audio_service.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -148,7 +149,10 @@ class _GameScreenState extends State<GameScreen> {
                 children: [
                   // 返回按钮
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      AudioService().playButtonClick();
+                      Navigator.pop(context);
+                    },
                     icon: const Icon(Icons.arrow_back,
                         color: Colors.white, size: 20),
                     padding: EdgeInsets.zero,
@@ -209,28 +213,63 @@ class _GameScreenState extends State<GameScreen> {
               bottom: 0,
               child: Row(
                 children: [
+                  // 静音/取消静音按钮
                   IconButton(
-                    onPressed: () {},
+                    onPressed: AudioService().audioEnabled
+                        ? () async {
+                            AudioService().playButtonClick();
+                            await AudioService().toggleMute();
+                            setState(() {}); // 刷新UI以更新图标
+                          }
+                        : null,
+                    icon: Icon(
+                      !AudioService().audioEnabled
+                          ? Icons.volume_off_outlined // 音频功能未启用
+                          : (AudioService().isMuted
+                              ? Icons.volume_off
+                              : Icons.volume_up),
+                      color: AudioService().audioEnabled
+                          ? Colors.white
+                          : Colors.grey,
+                      size: 18,
+                    ),
+                    padding: const EdgeInsets.all(0),
+                    constraints: const BoxConstraints(),
+                    tooltip: AudioService().audioEnabled
+                        ? (AudioService().isMuted ? '取消静音' : '静音')
+                        : '音频功能未启用',
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      AudioService().playButtonClick();
+                    },
                     icon: const Icon(Icons.star, color: Colors.white, size: 18),
                     padding: const EdgeInsets.all(0),
                     constraints: const BoxConstraints(),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      AudioService().playButtonClick();
+                    },
                     icon: const Icon(Icons.flash_on,
                         color: Colors.white, size: 18),
                     padding: const EdgeInsets.all(0),
                     constraints: const BoxConstraints(),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      AudioService().playButtonClick();
+                    },
                     icon: const Icon(Icons.copyright,
                         color: Colors.white, size: 18),
                     padding: const EdgeInsets.all(0),
                     constraints: const BoxConstraints(),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      AudioService().playButtonClick();
+                    },
                     icon: const Icon(Icons.camera_alt,
                         color: Colors.white, size: 18),
                     padding: const EdgeInsets.all(0),
@@ -939,7 +978,10 @@ class _GameScreenState extends State<GameScreen> {
                 Row(children: [
                   // 不叫按钮
                   ElevatedButton(
-                    onPressed: () => gameProvider.passBid(),
+                    onPressed: () {
+                      // 只播放过牌音效，不播放按钮点击音效
+                      gameProvider.passBid();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red[600],
                       foregroundColor: Colors.white,
@@ -958,7 +1000,10 @@ class _GameScreenState extends State<GameScreen> {
                       // 一分
                       if (gameProvider.maxBid < 1)
                         ElevatedButton(
-                          onPressed: () => gameProvider.bid(1),
+                          onPressed: () {
+                            // 只播放叫分音效，不播放按钮点击音效
+                            gameProvider.bid(1);
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange[600],
                             foregroundColor: Colors.white,
@@ -976,7 +1021,10 @@ class _GameScreenState extends State<GameScreen> {
                       // 二分
                       if (gameProvider.maxBid < 2)
                         ElevatedButton(
-                          onPressed: () => gameProvider.bid(2),
+                          onPressed: () {
+                            // 只播放叫分音效，不播放按钮点击音效
+                            gameProvider.bid(2);
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange[600],
                             foregroundColor: Colors.white,
@@ -994,7 +1042,10 @@ class _GameScreenState extends State<GameScreen> {
                       // 三分
                       if (gameProvider.maxBid < 3)
                         ElevatedButton(
-                          onPressed: () => gameProvider.bid(3),
+                          onPressed: () {
+                            // 只播放叫分音效，不播放按钮点击音效
+                            gameProvider.bid(3);
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange[600],
                             foregroundColor: Colors.white,
@@ -1029,6 +1080,7 @@ class _GameScreenState extends State<GameScreen> {
                                       '不出按钮点击 - currentPlay: ${gameProvider.currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
                                   print(
                                       '不出按钮点击 - shouldContinuePlay: ${gameProvider.shouldContinuePlay}');
+                                  // 只播放过牌音效，不播放按钮点击音效
                                   gameProvider.pass();
                                 }
                               : null,
@@ -1053,7 +1105,10 @@ class _GameScreenState extends State<GameScreen> {
                       onPressed:
                           (gameProvider.currentPlayer == PlayerType.player &&
                                   gameProvider.selectedCards.isNotEmpty)
-                              ? () => gameProvider.playCards()
+                              ? () {
+                                  // 只播放出牌音效，不播放按钮点击音效
+                                  gameProvider.playCards();
+                                }
                               : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
@@ -1163,6 +1218,7 @@ class _GameScreenState extends State<GameScreen> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
+                      AudioService().playButtonClick();
                       gameProvider.initGame();
                     },
                     style: ElevatedButton.styleFrom(
@@ -1172,7 +1228,10 @@ class _GameScreenState extends State<GameScreen> {
                     child: const Text('再来一局'),
                   ),
                   ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      AudioService().playButtonClick();
+                      Navigator.pop(context);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[600],
                       foregroundColor: Colors.white,
