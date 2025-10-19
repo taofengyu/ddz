@@ -448,6 +448,17 @@ class GameProvider extends ChangeNotifier {
     if (_currentPlay.isNotEmpty) {
       CardCombination currentCombination =
           CardCombination.analyze(_currentPlay);
+
+      // 添加调试信息
+      print('=== 出牌验证 ===');
+      print('当前需要压过的牌: ${_currentPlay.map((c) => c.displayName).join(' ')}');
+      print(
+          '当前牌型: ${currentCombination.type}, 权重: ${currentCombination.weight}');
+      print('玩家要出的牌: ${_selectedCards.map((c) => c.displayName).join(' ')}');
+      print('玩家牌型: ${combination.type}, 权重: ${combination.weight}');
+      print('能否压过: ${combination.canBeat(currentCombination)}');
+      print('===============');
+
       if (!combination.canBeat(currentCombination)) return;
     }
 
@@ -492,6 +503,9 @@ class GameProvider extends ChangeNotifier {
     // 记录过牌状态
     _lastAction[PlayerType.player] = 'pass'; // 记录玩家过牌
     _shouldShowPlayerPassState = true; // 标记应该显示玩家过牌状态
+
+    // 记录玩家过牌到AI服务（空列表表示过牌）
+    AIService().recordPlayedCards([], PlayerType.player);
 
     // 立即通知UI更新，显示"要不起"
     notifyListeners();
@@ -643,6 +657,22 @@ class GameProvider extends ChangeNotifier {
         print(
             'AI出牌: ${playCards.map((c) => '${c.rank}(${c.value})').toList()}');
 
+        // 添加AI出牌调试信息
+        if (_currentPlay.isNotEmpty) {
+          CardCombination currentCombination =
+              CardCombination.analyze(_currentPlay);
+          CardCombination aiCombination = CardCombination.analyze(playCards);
+          print('=== AI出牌验证 ===');
+          print(
+              '当前需要压过的牌: ${_currentPlay.map((c) => c.displayName).join(' ')}');
+          print(
+              '当前牌型: ${currentCombination.type}, 权重: ${currentCombination.weight}');
+          print('AI要出的牌: ${playCards.map((c) => c.displayName).join(' ')}');
+          print('AI牌型: ${aiCombination.type}, 权重: ${aiCombination.weight}');
+          print('AI能否压过: ${aiCombination.canBeat(currentCombination)}');
+          print('================');
+        }
+
         // 记录新的出牌
         _currentPlay = playCards;
         _lastPlay = List.from(playCards); // 记录最后出牌
@@ -712,6 +742,9 @@ class GameProvider extends ChangeNotifier {
         // AI选择过，增加过牌计数
         _passCount++;
         print('AI实际过牌，_passCount: $_passCount');
+
+        // 记录AI过牌到AI服务（空列表表示过牌）
+        AIService().recordPlayedCards([], _currentPlayer);
 
         // 记录过牌状态 - 保持上一次出牌的内容，不清空
         // _lastPlayer 保持为出牌的玩家，不改变

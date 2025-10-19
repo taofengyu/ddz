@@ -11,8 +11,7 @@ class AIService {
   // 记牌系统 - 记录已出的牌
   final Map<int, int> _playedCards = {}; // 记录每张牌已出的数量
   final List<PlayingCard> _allPlayedCards = []; // 记录所有已出的牌
-  final Map<PlayerType, List<List<PlayingCard>>> _playerPlayHistory =
-      {}; // 记录每个玩家的出牌历史
+  final Map<PlayerType, List<dynamic>> _playerPlayHistory = {}; // 记录每个玩家的出牌历史
 
   // 策略相关
   int _gamePhase = 0; // 游戏阶段：0-开局，1-中局，2-残局
@@ -31,16 +30,22 @@ class AIService {
 
   /// 记录已出的牌
   void recordPlayedCards(List<PlayingCard> cards, PlayerType player) {
-    for (var card in cards) {
-      _playedCards[card.value] = (_playedCards[card.value] ?? 0) + 1;
-      _allPlayedCards.add(card);
-    }
-
-    // 记录玩家出牌历史
+    // 记录出牌历史
     if (!_playerPlayHistory.containsKey(player)) {
       _playerPlayHistory[player] = [];
     }
-    _playerPlayHistory[player]!.add(List.from(cards));
+
+    if (cards.isEmpty) {
+      // 过牌记录
+      _playerPlayHistory[player]!.add("过牌");
+    } else {
+      // 出牌记录
+      for (var card in cards) {
+        _playedCards[card.value] = (_playedCards[card.value] ?? 0) + 1;
+        _allPlayedCards.add(card);
+      }
+      _playerPlayHistory[player]!.add(List.from(cards));
+    }
   }
 
   /// 设置AI基本信息
@@ -740,9 +745,17 @@ class AIService {
       'myCardsCount': _myCards.length,
       'playerPlayHistory': _playerPlayHistory.map((key, value) => MapEntry(
           key.toString(),
-          value
-              .map((play) => play.map((card) => card.displayName).toList())
-              .toList())),
+          value.map((play) {
+            if (play is String) {
+              // 过牌记录
+              return play;
+            } else if (play is List) {
+              // 出牌记录
+              return play.map((card) => card.displayName).toList();
+            } else {
+              return play.toString();
+            }
+          }).toList())),
     };
   }
 }

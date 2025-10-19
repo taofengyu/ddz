@@ -26,8 +26,8 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
           right: 10,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            width: _isExpanded ? 300 : 60,
-            height: _isExpanded ? 400 : 60,
+            width: _isExpanded ? 280 : 60,
+            height: _isExpanded ? 350 : 60,
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.8),
               borderRadius: BorderRadius.circular(10),
@@ -146,19 +146,29 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          '$title:',
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 11,
+        Expanded(
+          flex: 2,
+          child: Text(
+            '$title:',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 1,
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -169,35 +179,41 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
     if (playedCards.isEmpty) {
       return const Text(
         '暂无数据',
-        style: TextStyle(color: Colors.white70, fontSize: 10),
+        style: TextStyle(color: Colors.white70, fontSize: 9),
       );
     }
 
+    // 按出牌数量排序，优先显示重要的牌
+    List<MapEntry<dynamic, dynamic>> sortedCards = playedCards.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     List<Widget> cardInfoWidgets = [];
-    playedCards.forEach((value, count) {
-      String cardName = _getCardName(value);
+    for (var entry in sortedCards) {
+      String cardName = _getCardName(entry.key);
       cardInfoWidgets.add(
         Container(
-          margin: const EdgeInsets.only(bottom: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          margin: const EdgeInsets.only(bottom: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
           decoration: BoxDecoration(
             color: Colors.blue.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(3),
           ),
           child: Text(
-            '$cardName: $count',
+            '$cardName:${entry.value}',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 10,
+              fontSize: 9,
             ),
           ),
         ),
       );
-    });
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: cardInfoWidgets,
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: cardInfoWidgets,
+      ),
     );
   }
 
@@ -205,44 +221,64 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
     if (playHistory.isEmpty) {
       return const Text(
         '暂无数据',
-        style: TextStyle(color: Colors.white70, fontSize: 10),
+        style: TextStyle(color: Colors.white70, fontSize: 9),
       );
     }
 
     List<Widget> historyWidgets = [];
     playHistory.forEach((player, plays) {
       String playerName = _getPlayerName(player);
+
       historyWidgets.add(
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '$playerName:',
+              '$playerName (${plays.length}次):',
               style: const TextStyle(
                 color: Colors.yellow,
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            ...plays.map<Widget>((play) => Container(
-                  margin: const EdgeInsets.only(left: 8, bottom: 2),
-                  child: Text(
-                    play.toString(),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 9,
-                    ),
+            ...plays.map<Widget>((play) {
+              String playText;
+              if (play == "过牌") {
+                playText = "过牌";
+              } else if (play is List) {
+                // 出牌记录 - 已经是字符串列表
+                playText = play.join(' ');
+              } else {
+                playText = play.toString();
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(left: 6, bottom: 1),
+                child: Text(
+                  playText.length > 25
+                      ? '${playText.substring(0, 25)}...'
+                      : playText,
+                  style: TextStyle(
+                    color: play == "过牌" ? Colors.orange : Colors.white70,
+                    fontSize: 8,
+                    fontWeight:
+                        play == "过牌" ? FontWeight.bold : FontWeight.normal,
                   ),
-                )),
-            const SizedBox(height: 4),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+            const SizedBox(height: 2),
           ],
         ),
       );
     });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: historyWidgets,
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: historyWidgets,
+      ),
     );
   }
 
