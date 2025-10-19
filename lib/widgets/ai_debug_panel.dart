@@ -17,10 +17,6 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
   Widget build(BuildContext context) {
     return Consumer<GameProvider>(
       builder: (context, gameProvider, child) {
-        if (gameProvider.gameState != GameState.playing) {
-          return const SizedBox.shrink();
-        }
-
         return Positioned(
           top: 10,
           right: 10,

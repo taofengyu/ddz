@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/card_widget.dart';
-import '../widgets/ai_debug_panel.dart';
 import '../widgets/deal_animation.dart';
 import '../models/card.dart';
 import '../services/audio_service.dart';
@@ -48,6 +47,289 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  // 显示AI调试弹框
+  void _showAIDebugDialog(BuildContext context, GameProvider gameProvider) {
+    Map<String, dynamic> aiInfo = gameProvider.getAIMemoryInfo();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 320,
+            height: 400,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.white, width: 1),
+            ),
+            child: Column(
+              children: [
+                // 标题栏
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.3),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(15),
+                      topRight: Radius.circular(15),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.psychology,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'AI调试面板',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close,
+                            color: Colors.white, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                // 内容区域
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInfoRow(
+                            '游戏阶段', _getGamePhaseText(aiInfo['gamePhase'])),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(
+                            '已出牌数量', '${aiInfo['allPlayedCardsCount']}'),
+                        const SizedBox(height: 8),
+                        _buildInfoRow('当前玩家手牌', '${aiInfo['myCardsCount']}'),
+                        const SizedBox(height: 8),
+                        _buildInfoRow('地主身份', aiInfo['isLandlord'] ? '是' : '否'),
+                        const SizedBox(height: 12),
+                        // 已出牌统计
+                        const Text(
+                          '已出牌统计:',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _buildPlayedCardsInfo(aiInfo['playedCards']),
+                        const SizedBox(height: 12),
+                        // 出牌历史
+                        const Text(
+                          '出牌历史:',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _buildPlayHistory(aiInfo['playerPlayHistory']),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 构建信息行
+  Widget _buildInfoRow(String title, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            '$title:',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 1,
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 构建已出牌信息
+  Widget _buildPlayedCardsInfo(Map<dynamic, dynamic> playedCards) {
+    if (playedCards.isEmpty) {
+      return const Text(
+        '暂无数据',
+        style: TextStyle(color: Colors.white70, fontSize: 9),
+      );
+    }
+
+    List<MapEntry<dynamic, dynamic>> sortedCards = playedCards.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    List<Widget> cardInfoWidgets = [];
+    for (var entry in sortedCards) {
+      String cardName = _getCardName(entry.key);
+      cardInfoWidgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            '$cardName:${entry.value}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: cardInfoWidgets,
+    );
+  }
+
+  // 构建出牌历史
+  Widget _buildPlayHistory(Map<dynamic, dynamic> playHistory) {
+    if (playHistory.isEmpty) {
+      return const Text(
+        '暂无数据',
+        style: TextStyle(color: Colors.white70, fontSize: 9),
+      );
+    }
+
+    List<Widget> historyWidgets = [];
+    playHistory.forEach((player, plays) {
+      String playerName = _getPlayerName(player);
+
+      historyWidgets.add(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$playerName (${plays.length}次):',
+              style: const TextStyle(
+                color: Colors.yellow,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            ...plays.map<Widget>((play) {
+              String playText;
+              if (play == "过牌") {
+                playText = "过牌";
+              } else if (play is List) {
+                playText = play.join(' ');
+              } else {
+                playText = play.toString();
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(left: 6, bottom: 1),
+                child: Text(
+                  playText.length > 25
+                      ? '${playText.substring(0, 25)}...'
+                      : playText,
+                  style: TextStyle(
+                    color: play == "过牌" ? Colors.orange : Colors.white70,
+                    fontSize: 8,
+                    fontWeight:
+                        play == "过牌" ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+            const SizedBox(height: 2),
+          ],
+        ),
+      );
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: historyWidgets,
+    );
+  }
+
+  String _getGamePhaseText(int phase) {
+    switch (phase) {
+      case 0:
+        return '开局';
+      case 1:
+        return '中局';
+      case 2:
+        return '残局';
+      default:
+        return '未知';
+    }
+  }
+
+  String _getCardName(dynamic value) {
+    if (value == 16) return '小王';
+    if (value == 17) return '大王';
+    if (value == 15) return '2';
+    if (value == 14) return 'A';
+    if (value == 13) return 'K';
+    if (value == 12) return 'Q';
+    if (value == 11) return 'J';
+    if (value == 10) return '10';
+    if (value == 9) return '9';
+    if (value == 8) return '8';
+    if (value == 7) return '7';
+    if (value == 6) return '6';
+    if (value == 5) return '5';
+    if (value == 4) return '4';
+    if (value == 3) return '3';
+    return '$value';
+  }
+
+  String _getPlayerName(dynamic player) {
+    String playerStr = player.toString();
+    if (playerStr.contains('player')) return '玩家';
+    if (playerStr.contains('leftAI')) return '左家AI';
+    if (playerStr.contains('rightAI')) return '右家AI';
+    return playerStr;
   }
 
   void _updateTime() {
@@ -145,9 +427,6 @@ class _GameScreenState extends State<GameScreen> {
                 ),
 
                 // 其他覆盖层（如AI调试面板）
-
-                // AI调试面板
-                const AIDebugPanel(),
 
                 // 游戏结束弹框
                 if (gameProvider.gameState == GameState.finished)
@@ -270,41 +549,19 @@ class _GameScreenState extends State<GameScreen> {
                         : '音频功能未启用',
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () {
-                      AudioService().playButtonClick();
-                    },
-                    icon: const Icon(Icons.star, color: Colors.white, size: 18),
-                    padding: const EdgeInsets.all(0),
-                    constraints: const BoxConstraints(),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      AudioService().playButtonClick();
-                    },
-                    icon: const Icon(Icons.flash_on,
-                        color: Colors.white, size: 18),
-                    padding: const EdgeInsets.all(0),
-                    constraints: const BoxConstraints(),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      AudioService().playButtonClick();
-                    },
-                    icon: const Icon(Icons.copyright,
-                        color: Colors.white, size: 18),
-                    padding: const EdgeInsets.all(0),
-                    constraints: const BoxConstraints(),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      AudioService().playButtonClick();
-                    },
-                    icon: const Icon(Icons.camera_alt,
-                        color: Colors.white, size: 18),
-                    padding: const EdgeInsets.all(0),
-                    constraints: const BoxConstraints(),
-                  ),
+                  // AI调试按钮
+                  if (gameProvider.gameState == GameState.playing)
+                    IconButton(
+                      onPressed: () {
+                        // 直接打开AI调试弹框
+                        _showAIDebugDialog(context, gameProvider);
+                      },
+                      icon: const Icon(Icons.psychology,
+                          color: Colors.white, size: 18),
+                      padding: const EdgeInsets.all(0),
+                      constraints: const BoxConstraints(),
+                      tooltip: 'AI调试面板',
+                    ),
                 ],
               ),
             ),
