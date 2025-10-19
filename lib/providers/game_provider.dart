@@ -25,6 +25,12 @@ class GameProvider extends ChangeNotifier {
   GameState _gameState = GameState.waiting;
   GameState get gameState => _gameState;
 
+  // 发牌动画相关
+  bool _isDealing = false;
+  bool get isDealing => _isDealing;
+  List<PlayingCard> _allCards = []; // 所有牌（用于发牌动画）
+  List<PlayingCard> get allCards => _allCards;
+
   // 玩家手牌
   List<PlayingCard> _playerCards = [];
   List<PlayingCard> _leftAICards = [];
@@ -194,15 +200,28 @@ class GameProvider extends ChangeNotifier {
     // 重置AI服务
     AIService().reset();
 
-    notifyListeners();
+    // 开始发牌动画
+    _startDealingAnimation();
+  }
 
+  // 开始发牌动画
+  void _startDealingAnimation() {
+    _isDealing = true;
+    _allCards = _generateDeck();
+    _allCards.shuffle(Random());
+    notifyListeners();
+  }
+
+  // 发牌动画完成回调
+  void onDealingComplete() {
+    _isDealing = false;
     _dealCards();
   }
 
   // 发牌
   void _dealCards() {
-    List<PlayingCard> allCards = _generateDeck();
-    allCards.shuffle(Random());
+    // 使用已经生成的牌
+    List<PlayingCard> allCards = _allCards;
 
     // 发牌给三个玩家
     for (int i = 0; i < 51; i++) {
@@ -218,15 +237,23 @@ class GameProvider extends ChangeNotifier {
     // 剩余3张为地主牌
     _landlordCards = allCards.sublist(51);
 
-    // 排序手牌
-    _sortCards(_playerCards);
-    _sortCards(_leftAICards);
-    _sortCards(_rightAICards);
-
     // 播放发牌音效
     AudioService().playCardDeal();
 
     _gameState = GameState.bidding;
+    notifyListeners();
+
+    // 延迟进行排序，触发手牌区动画
+    Future.delayed(const Duration(milliseconds: 300), () {
+      sortPlayerCards();
+    });
+  }
+
+  // 对玩家和 AI 手牌进行排序并通知监听
+  void sortPlayerCards() {
+    _sortCards(_playerCards);
+    _sortCards(_leftAICards);
+    _sortCards(_rightAICards);
     notifyListeners();
   }
 

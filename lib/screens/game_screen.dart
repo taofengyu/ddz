@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/ai_debug_panel.dart';
+import '../widgets/deal_animation.dart';
 import '../models/card.dart';
 import '../services/audio_service.dart';
 
@@ -18,6 +19,14 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   Timer? _timer;
   String _currentTime = '';
+
+  // 手牌区域的GlobalKey
+  final GlobalKey _playerHandKey = GlobalKey();
+  final GlobalKey _leftAIHandKey = GlobalKey();
+  final GlobalKey _rightAIHandKey = GlobalKey();
+  final GlobalKey _landlordCardsKey = GlobalKey();
+  // 玩家手牌 Stack 的 GlobalKey，用于发牌动画精确定位
+  final GlobalKey _playerStackKey = GlobalKey();
 
   @override
   void initState() {
@@ -70,6 +79,20 @@ class _GameScreenState extends State<GameScreen> {
             return Stack(
               fit: StackFit.expand,
               children: [
+                // 发牌动画放在底层，避免遮挡左右玩家头像
+                if (gameProvider.isDealing)
+                  DealAnimation(
+                    cards: gameProvider.allCards,
+                    onComplete: () {
+                      gameProvider.onDealingComplete();
+                    },
+                    playerHandKey: _playerHandKey,
+                    playerStackKey: _playerStackKey,
+                    leftAIHandKey: _leftAIHandKey,
+                    rightAIHandKey: _rightAIHandKey,
+                    landlordCardsKey: _landlordCardsKey,
+                  ),
+
                 Column(
                   children: [
                     // 安全区域内容
@@ -114,11 +137,14 @@ class _GameScreenState extends State<GameScreen> {
                                 bottom: 10.0,
                               )
                             : EdgeInsets.zero,
-                        child: _buildPlayerHandArea(context, gameProvider),
+                        child: _buildPlayerHandArea(
+                            context, gameProvider, _playerHandKey),
                       ),
                     ),
                   ],
                 ),
+
+                // 其他覆盖层（如AI调试面板）
 
                 // AI调试面板
                 const AIDebugPanel(),
@@ -307,6 +333,7 @@ class _GameScreenState extends State<GameScreen> {
                     PlayerType.leftAI,
                     '左家',
                     Alignment.centerLeft,
+                    _leftAIHandKey,
                   ),
                 ),
               ),
@@ -326,6 +353,7 @@ class _GameScreenState extends State<GameScreen> {
                     PlayerType.rightAI,
                     '右家',
                     Alignment.centerRight,
+                    _rightAIHandKey,
                   ),
                 ),
               ),
@@ -714,6 +742,7 @@ class _GameScreenState extends State<GameScreen> {
     PlayerType playerType,
     String nickname,
     Alignment alignment,
+    GlobalKey handKey,
   ) {
     List<PlayingCard> cards = playerType == PlayerType.leftAI
         ? gameProvider.leftAICards
@@ -732,6 +761,7 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     return Container(
+      key: handKey,
       padding: const EdgeInsets.all(4),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -826,8 +856,10 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildPlayerHandArea(BuildContext context, GameProvider gameProvider) {
+  Widget _buildPlayerHandArea(
+      BuildContext context, GameProvider gameProvider, GlobalKey handKey) {
     return Container(
+      key: handKey,
       width: double.infinity,
       margin: EdgeInsets.only(
         bottom: Platform.isAndroid ? 20 : 16,
@@ -1060,26 +1092,31 @@ class _GameScreenState extends State<GameScreen> {
                     ? (cardCount - 1) * cardOverlap + cardWidth
                     : cardWidth;
                 double startLeft = (constraints.maxWidth - totalWidth) / 2;
-                return Stack(
-                  children: [
-                    for (int i = 0; i < cardCount; i++)
-                      Positioned(
-                        left: startLeft + i * cardOverlap,
-                        bottom: gameProvider.selectedCards
-                                .contains(gameProvider.playerCards[i])
-                            ? 20 // 增加选中状态的移动距离
-                            : 0,
-                        child: GestureDetector(
-                          onTap: () => gameProvider
-                              .selectCard(gameProvider.playerCards[i]),
-                          child: CardWidget(
-                            card: gameProvider.playerCards[i],
-                            width: cardWidth,
-                            height: 80,
+                return Container(
+                  key: _playerStackKey,
+                  child: Stack(
+                    children: [
+                      for (int i = 0; i < cardCount; i++)
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                          left: startLeft + i * cardOverlap,
+                          bottom: gameProvider.selectedCards
+                                  .contains(gameProvider.playerCards[i])
+                              ? 20 // 增加选中状态的移动距离
+                              : 0,
+                          child: GestureDetector(
+                            onTap: () => gameProvider
+                                .selectCard(gameProvider.playerCards[i]),
+                            child: CardWidget(
+                              card: gameProvider.playerCards[i],
+                              width: cardWidth,
+                              height: 80,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 );
               },
             ),
