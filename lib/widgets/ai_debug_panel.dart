@@ -24,19 +24,21 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
         return Positioned(
           top: 10,
           right: 10,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: _isExpanded ? 280 : 60,
-            height: _isExpanded ? 350 : 60,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white, width: 1),
-              clipBehavior: Clip.hardEdge,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: _isExpanded ? 280 : 60,
+              height: _isExpanded ? 350 : 60,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white, width: 1),
+              ),
+              child: _isExpanded
+                  ? _buildExpandedPanel(gameProvider)
+                  : _buildCollapsedPanel(),
             ),
-            child: _isExpanded
-                ? _buildExpandedPanel(gameProvider)
-                : _buildCollapsedPanel(),
           ),
         );
       },

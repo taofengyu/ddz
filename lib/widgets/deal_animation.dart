@@ -30,12 +30,12 @@ class DealAnimation extends StatefulWidget {
   State<DealAnimation> createState() => _DealAnimationState();
 }
 
-class _DealAnimationState extends State<DealAnimation>
-    with TickerProviderStateMixin {
-  late AnimationController _controller;
+class _DealAnimationState extends State<DealAnimation> {
+  // 不再需要 AnimationController
 
   List<PlayingCard> _dealtCards = [];
   int _currentCardIndex = 0;
+  Set<int> _flippedPlayerCards = {}; // 记录已翻牌的玩家牌索引
 
   // 手牌区域位置
   late Offset _playerHandPosition;
@@ -45,29 +45,34 @@ class _DealAnimationState extends State<DealAnimation>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
-
     _startDealing();
   }
 
   void _startDealing() {
-    _controller.forward().then((_) {
-      widget.onComplete();
-    });
-
-    // 每张牌的发牌间隔
-    final cardInterval = widget.duration.inMilliseconds / widget.cards.length;
-
+    const int perCard = 30; // 每张牌的固定间隔（毫秒）- 加快发牌速度
     for (int i = 0; i < widget.cards.length; i++) {
-      Future.delayed(Duration(milliseconds: (cardInterval * i).round()), () {
-        if (mounted) {
-          setState(() {
-            _dealtCards.add(widget.cards[i]);
-            _currentCardIndex = i;
+      Future.delayed(Duration(milliseconds: perCard * i), () {
+        if (!mounted) return;
+        setState(() {
+          _dealtCards.add(widget.cards[i]);
+          _currentCardIndex = i;
+        });
+
+        // 如果是玩家牌且到达目标位置，延迟翻牌
+        final bool isPlayerCard = (i % 3) == 0;
+        if (isPlayerCard) {
+          Future.delayed(const Duration(milliseconds: 350), () {
+            if (mounted) {
+              setState(() {
+                _flippedPlayerCards.add(i); // 标记这张玩家牌已翻牌
+              });
+            }
           });
+        }
+
+        // 最后一张牌落定后回调完成
+        if (i == widget.cards.length - 1) {
+          Future.delayed(const Duration(milliseconds: 300), widget.onComplete);
         }
       });
     }
@@ -75,7 +80,6 @@ class _DealAnimationState extends State<DealAnimation>
 
   @override
   void dispose() {
-    _controller.dispose();
     super.dispose();
   }
 
@@ -112,7 +116,7 @@ class _DealAnimationState extends State<DealAnimation>
       final double cardHeight = isPlayerCard ? 80.0 : 70.0;
 
       final cardWidget = AnimatedPositioned(
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
         left: isFlying ? _getCardPosition(i).dx : targetPosition.dx,
         top: isFlying ? _getCardPosition(i).dy : targetPosition.dy,
@@ -134,7 +138,9 @@ class _DealAnimationState extends State<DealAnimation>
             ),
             child: CardWidget(
               card: card,
-              isFaceDown: isPlayerCard ? isFlying : !isFlying,
+              isFaceDown: isPlayerCard
+                  ? !_flippedPlayerCards.contains(i)
+                  : true, // 玩家牌到达目标位置后才翻牌，AI牌始终保持背面
               onTap: () {},
               width: cardWidth,
               height: cardHeight,
