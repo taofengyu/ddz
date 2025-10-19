@@ -1098,8 +1098,9 @@ class _GameScreenState extends State<GameScreen> {
                     children: [
                       for (int i = 0; i < cardCount; i++)
                         AnimatedPositioned(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutCubic,
+                          key: ValueKey(gameProvider.playerCards[i]),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.easeInOut,
                           left: startLeft + i * cardOverlap,
                           bottom: gameProvider.selectedCards
                                   .contains(gameProvider.playerCards[i])
