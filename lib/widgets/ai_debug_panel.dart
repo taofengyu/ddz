@@ -32,6 +32,7 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
               color: Colors.black.withOpacity(0.8),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.white, width: 1),
+              clipBehavior: Clip.hardEdge,
             ),
             child: _isExpanded
                 ? _buildExpandedPanel(gameProvider)
@@ -60,6 +61,7 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
     Map<String, dynamic> aiInfo = gameProvider.getAIMemoryInfo();
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // 标题栏
         Container(
@@ -75,7 +77,7 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
             children: [
               const Icon(Icons.psychology, color: Colors.white, size: 16),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'AI调试面板',
                   style: TextStyle(
@@ -83,6 +85,8 @@ class _AIDebugPanelState extends State<AIDebugPanel> {
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               InkWell(
