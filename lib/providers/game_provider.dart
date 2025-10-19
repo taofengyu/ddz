@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/card.dart';
 import '../models/card_combination.dart';
 import '../services/audio_service.dart';
+import '../services/ai_service.dart';
 
 enum GameState {
   waiting, // 等待开始
@@ -92,37 +94,15 @@ class GameProvider extends ChangeNotifier {
 
   // 判断是否应该显示"要不起"
   bool get shouldShowLeftPass {
-    bool result =
-        _lastPlay.isNotEmpty && _lastAction[PlayerType.leftAI] == 'pass';
-    print('shouldShowLeftPass: $result');
-    print('  _lastPlayer: $_lastPlayer');
-    print('  _lastPlay.isNotEmpty: ${_lastPlay.isNotEmpty}');
-    print(
-        '  _lastAction[PlayerType.leftAI]: ${_lastAction[PlayerType.leftAI]}');
-    print('  leftLastPlay.isEmpty: ${leftLastPlay.isEmpty}');
-    return result;
+    return _lastPlay.isNotEmpty && _lastAction[PlayerType.leftAI] == 'pass';
   }
 
   bool get shouldShowPlayerPass {
-    bool result =
-        _lastPlay.isNotEmpty && _lastAction[PlayerType.player] == 'pass';
-    print('shouldShowPlayerPass: $result');
-    print('  _lastPlayer: $_lastPlayer');
-    print('  _lastPlay.isNotEmpty: ${_lastPlay.isNotEmpty}');
-    print(
-        '  _lastAction[PlayerType.player]: ${_lastAction[PlayerType.player]}');
-    return result;
+    return _lastPlay.isNotEmpty && _lastAction[PlayerType.player] == 'pass';
   }
 
   bool get shouldShowRightPass {
-    bool result =
-        _lastPlay.isNotEmpty && _lastAction[PlayerType.rightAI] == 'pass';
-    print('shouldShowRightPass: $result');
-    print('  _lastPlayer: $_lastPlayer');
-    print('  _lastPlay.isNotEmpty: ${_lastPlay.isNotEmpty}');
-    print(
-        '  _lastAction[PlayerType.rightAI]: ${_lastAction[PlayerType.rightAI]}');
-    return result;
+    return _lastPlay.isNotEmpty && _lastAction[PlayerType.rightAI] == 'pass';
   }
 
   // 当前玩家
@@ -210,6 +190,9 @@ class GameProvider extends ChangeNotifier {
     _bombCount = 0;
     _isSpring = false;
     _isAntiSpring = false;
+
+    // 重置AI服务
+    AIService().reset();
 
     notifyListeners();
 
@@ -433,8 +416,10 @@ class GameProvider extends ChangeNotifier {
 
   // 选择牌
   void selectCard(PlayingCard card) {
-    if (_gameState != GameState.playing || _currentPlayer != PlayerType.player)
+    if (_gameState != GameState.playing ||
+        _currentPlayer != PlayerType.player) {
       return;
+    }
 
     int index = _playerCards.indexOf(card);
     if (index != -1) {
@@ -445,10 +430,9 @@ class GameProvider extends ChangeNotifier {
         _selectedCards.add(card);
         _playerCards[index] = _playerCards[index].copyWith(isSelected: true);
       }
-      // 播放选牌音效（选中和取消选中都播放）
       AudioService().playCardSelect();
       notifyListeners();
-    }
+    } else {}
   }
 
   // 出牌
@@ -491,7 +475,6 @@ class GameProvider extends ChangeNotifier {
     }
 
     // 清空出牌区状态
-    print('玩家过牌，清空出牌区状态');
     _shouldShowPassState = false; // 重置过牌状态显示标记
     _shouldShowPlayerPassState = false; // 重置玩家过牌状态标记
     _shouldShowLeftPassState = false; // 重置左家过牌状态标记
@@ -503,7 +486,6 @@ class GameProvider extends ChangeNotifier {
 
     // 如果开始新一轮，重置新一轮标记
     if (_shouldContinuePlay) {
-      print('玩家过牌时开始新一轮，重置新一轮标记');
       _shouldContinuePlay = false; // 重置新一轮标记
     }
 
@@ -514,28 +496,13 @@ class GameProvider extends ChangeNotifier {
     // 立即通知UI更新，显示"要不起"
     notifyListeners();
 
-    print('玩家过牌后状态:');
-    print(
-        '  _currentPlay: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
-    print(
-        '  _lastPlay: ${_lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
-    print('  _lastPlayer: $_lastPlayer');
-    print('  _lastAction: $_lastAction');
-    print('  shouldShowPlayerPass: ${shouldShowPlayerPass}');
-    print('  过牌前 _passCount: $_passCount');
-
     _passCount++;
-    print('  过牌后 _passCount: $_passCount');
     _nextPlayer();
   }
 
   // 出选中的牌
   void _playSelectedCards() {
-    print(
-        '玩家出牌: ${_selectedCards.map((c) => '${c.rank}(${c.value})').toList()}');
-
     // 清空出牌区状态
-    print('玩家出牌，清空出牌区状态');
     _shouldShowPassState = false; // 重置过牌状态显示标记
     _shouldShowPlayerPassState = false; // 重置玩家过牌状态标记
     _shouldShowLeftPassState = false; // 重置左家过牌状态标记
@@ -563,6 +530,10 @@ class GameProvider extends ChangeNotifier {
     _passCount = 0; // 重置过牌计数
     _shouldKeepPlayerPlayState = true; // 标记应该保持显示玩家的出牌状态
     _playerLastPlay = List.from(_selectedCards); // 记录玩家出牌内容
+
+    // 记录AI出牌历史
+    AIService().recordPlayedCards(_selectedCards, PlayerType.player);
+
     print('玩家出牌后状态:');
     print('  _shouldKeepPlayerPlayState: $_shouldKeepPlayerPlayState');
     print(
@@ -679,9 +650,9 @@ class GameProvider extends ChangeNotifier {
         _lastAction[_currentPlayer] = 'play'; // 记录AI出牌
         _passCount = 0; // 重置过牌计数
         _shouldContinuePlay = false; // 重置新一轮标记
-        // 不清空过牌状态显示标记，保持出牌区显示
-        // 不清空玩家出牌状态保持标记，保持出牌区显示
-        // 不清空玩家出牌内容，保持出牌区显示
+
+        // 记录AI出牌历史
+        AIService().recordPlayedCards(playCards, _currentPlayer);
 
         // 记录AI的出牌内容
         if (_currentPlayer == PlayerType.leftAI) {
@@ -773,299 +744,20 @@ class GameProvider extends ChangeNotifier {
     });
   }
 
-  // 改进的AI出牌逻辑
+  // 改进的AI出牌逻辑 - 使用高级AI服务
   List<PlayingCard> _getAIPlay(List<PlayingCard> aiCards) {
-    // 如果开始新一轮，出最小的牌
-    if (_shouldContinuePlay) {
-      print('AI开始新一轮，出最小的牌');
-      return _getBestFirstPlay(aiCards);
-    }
+    // 设置AI信息
+    bool isLandlord = (_currentPlayer == _landlord);
+    AIService().setAIInfo(aiCards, isLandlord);
 
-    // 如果没有需要压过的牌，出最小的牌
-    if (_currentPlay.isEmpty) {
-      print('AI没有需要压过的牌，出最小的牌');
-      return _getBestFirstPlay(aiCards);
-    }
+    // 使用高级AI服务获取出牌决策
+    List<PlayingCard> playCards =
+        AIService().getAdvancedAIPlay(aiCards, _currentPlay);
 
-    // 尝试找到能压过上家的牌
-    CardCombination currentCombination = CardCombination.analyze(_currentPlay);
-    print('当前出牌: ${_currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
-    print('当前组合类型: ${currentCombination.type}');
-    print('当前组合权重: ${currentCombination.weight}');
-    print('AI手牌: ${aiCards.map((c) => '${c.rank}(${c.value})').toList()}');
-    print('_shouldContinuePlay: $_shouldContinuePlay');
-    print('_currentPlay.isEmpty: ${_currentPlay.isEmpty}');
+    print(
+        '高级AI决策结果: ${playCards.map((c) => '${c.rank}(${c.value})').toList()}');
 
-    // 尝试相同牌型
-    List<PlayingCard> sameTypePlay =
-        _findSameTypePlay(aiCards, currentCombination);
-    if (sameTypePlay.isNotEmpty) {
-      print(
-          'AI找到相同牌型: ${sameTypePlay.map((c) => '${c.rank}(${c.value})').toList()}');
-      return sameTypePlay;
-    }
-
-    // 尝试炸弹
-    List<PlayingCard> bombPlay = _findBombPlay(aiCards);
-    if (bombPlay.isNotEmpty) {
-      print('AI找到炸弹: ${bombPlay.map((c) => '${c.rank}(${c.value})').toList()}');
-      return bombPlay;
-    }
-    print('AI没有找到炸弹');
-
-    // 尝试王炸
-    List<PlayingCard> rocketPlay = _findRocketPlay(aiCards);
-    if (rocketPlay.isNotEmpty) {
-      print(
-          'AI找到王炸: ${rocketPlay.map((c) => '${c.rank}(${c.value})').toList()}');
-      return rocketPlay;
-    }
-    print('AI没有找到王炸');
-
-    // 找不到能压过的牌，选择过
-    print('AI选择过牌');
-    return [];
-  }
-
-  // 获取最佳首出牌
-  List<PlayingCard> _getBestFirstPlay(List<PlayingCard> aiCards) {
-    if (aiCards.isEmpty) return [];
-
-    // 优先出最小的单牌
-    return [aiCards.last];
-  }
-
-  // 寻找相同牌型的出牌
-  List<PlayingCard> _findSameTypePlay(
-      List<PlayingCard> aiCards, CardCombination target) {
-    switch (target.type) {
-      case CombinationType.single:
-        return _findLargerSingle(aiCards, target.weight);
-      case CombinationType.pair:
-        return _findLargerPair(aiCards, target.weight);
-      case CombinationType.threeOfAKind:
-        return _findLargerThree(aiCards, target.weight);
-      case CombinationType.threeWithOne:
-        return _findLargerThreeWithOne(aiCards, target.weight);
-      case CombinationType.threeWithPair:
-        return _findLargerThreeWithPair(aiCards, target.weight);
-      case CombinationType.straight:
-        return _findLargerStraight(aiCards, target.weight, target.cards.length);
-      case CombinationType.pairStraight:
-        return _findLargerPairStraight(
-            aiCards, target.weight, target.cards.length);
-      case CombinationType.threeStraight:
-        return _findLargerThreeStraight(
-            aiCards, target.weight, target.cards.length);
-      case CombinationType.airplaneWithWings:
-        return _findLargerAirplaneWithWings(aiCards, target.weight);
-      case CombinationType.fourWithTwo:
-        return _findLargerFourWithTwo(aiCards, target.weight);
-      default:
-        return [];
-    }
-  }
-
-  // 寻找更大的单牌
-  List<PlayingCard> _findLargerSingle(
-      List<PlayingCard> aiCards, int targetWeight) {
-    print('AI寻找更大的单牌，目标权重: $targetWeight');
-    print('AI手牌: ${aiCards.map((c) => '${c.rank}(${c.value})').toList()}');
-    print('AI手牌数量: ${aiCards.length}');
-
-    for (int i = aiCards.length - 1; i >= 0; i--) {
-      print(
-          '检查卡片: ${aiCards[i].rank}(${aiCards[i].value}) vs 目标: $targetWeight');
-      if (aiCards[i].value > targetWeight) {
-        print('找到更大的牌: ${aiCards[i].rank}(${aiCards[i].value})');
-        return [aiCards[i]];
-      } else {
-        print('卡片 ${aiCards[i].rank}(${aiCards[i].value}) 不大于目标 $targetWeight');
-      }
-    }
-    print('没有找到更大的牌');
-    return [];
-  }
-
-  // 寻找更大的对子
-  List<PlayingCard> _findLargerPair(
-      List<PlayingCard> aiCards, int targetWeight) {
-    for (int i = 0; i < aiCards.length - 1; i++) {
-      if (aiCards[i].value == aiCards[i + 1].value &&
-          aiCards[i].value > targetWeight) {
-        return [aiCards[i], aiCards[i + 1]];
-      }
-    }
-    return [];
-  }
-
-  // 寻找更大的三张
-  List<PlayingCard> _findLargerThree(
-      List<PlayingCard> aiCards, int targetWeight) {
-    for (int i = 0; i < aiCards.length - 2; i++) {
-      if (aiCards[i].value == aiCards[i + 1].value &&
-          aiCards[i + 1].value == aiCards[i + 2].value &&
-          aiCards[i].value > targetWeight) {
-        return [aiCards[i], aiCards[i + 1], aiCards[i + 2]];
-      }
-    }
-    return [];
-  }
-
-  // 寻找更大的三带一
-  List<PlayingCard> _findLargerThreeWithOne(
-      List<PlayingCard> aiCards, int targetWeight) {
-    // 简化实现：寻找三张
-    List<PlayingCard> three = _findLargerThree(aiCards, targetWeight);
-    if (three.isNotEmpty && aiCards.length > 3) {
-      // 添加一张单牌
-      for (var card in aiCards) {
-        if (!three.contains(card)) {
-          three.add(card);
-          return three;
-        }
-      }
-    }
-    return [];
-  }
-
-  // 寻找更大的三带二
-  List<PlayingCard> _findLargerThreeWithPair(
-      List<PlayingCard> aiCards, int targetWeight) {
-    // 简化实现：寻找三张
-    List<PlayingCard> three = _findLargerThree(aiCards, targetWeight);
-    if (three.isNotEmpty) {
-      // 寻找对子
-      List<PlayingCard> pair = _findAnyPair(aiCards, three);
-      if (pair.isNotEmpty) {
-        three.addAll(pair);
-        return three;
-      }
-    }
-    return [];
-  }
-
-  // 寻找任意对子
-  List<PlayingCard> _findAnyPair(
-      List<PlayingCard> aiCards, List<PlayingCard> exclude) {
-    for (int i = 0; i < aiCards.length - 1; i++) {
-      if (aiCards[i].value == aiCards[i + 1].value &&
-          !exclude.contains(aiCards[i]) &&
-          !exclude.contains(aiCards[i + 1])) {
-        return [aiCards[i], aiCards[i + 1]];
-      }
-    }
-    return [];
-  }
-
-  // 寻找更大的顺子
-  List<PlayingCard> _findLargerStraight(
-      List<PlayingCard> aiCards, int targetWeight, int length) {
-    print('AI寻找更大的顺子，目标权重: $targetWeight，长度: $length');
-    print('AI手牌: ${aiCards.map((c) => '${c.rank}(${c.value})').toList()}');
-
-    // 过滤掉2和王，因为顺子不能包含这些牌
-    List<PlayingCard> validCards =
-        aiCards.where((card) => card.value < 15).toList();
-
-    if (validCards.length < length) {
-      print('AI手牌不足以组成顺子');
-      return [];
-    }
-
-    // 寻找所有可能的顺子
-    for (int start = 0; start <= validCards.length - length; start++) {
-      List<PlayingCard> potentialStraight = [];
-      bool isValidStraight = true;
-
-      for (int i = 0; i < length; i++) {
-        if (start + i >= validCards.length) {
-          isValidStraight = false;
-          break;
-        }
-
-        PlayingCard currentCard = validCards[start + i];
-        potentialStraight.add(currentCard);
-
-        // 检查是否连续
-        if (i > 0) {
-          PlayingCard prevCard = potentialStraight[i - 1];
-          if (currentCard.value != prevCard.value + 1) {
-            isValidStraight = false;
-            break;
-          }
-        }
-      }
-
-      if (isValidStraight && potentialStraight.length == length) {
-        // 检查是否比目标顺子大
-        int straightWeight = potentialStraight.last.value;
-        if (straightWeight > targetWeight) {
-          print(
-              'AI找到更大的顺子: ${potentialStraight.map((c) => '${c.rank}(${c.value})').toList()}');
-          return potentialStraight;
-        }
-      }
-    }
-
-    print('AI没有找到更大的顺子');
-    return [];
-  }
-
-  // 寻找更大的连对
-  List<PlayingCard> _findLargerPairStraight(
-      List<PlayingCard> aiCards, int targetWeight, int length) {
-    // 简化实现：暂时返回空
-    return [];
-  }
-
-  // 寻找更大的三顺
-  List<PlayingCard> _findLargerThreeStraight(
-      List<PlayingCard> aiCards, int targetWeight, int length) {
-    // 简化实现：暂时返回空
-    return [];
-  }
-
-  // 寻找更大的飞机带翅膀
-  List<PlayingCard> _findLargerAirplaneWithWings(
-      List<PlayingCard> aiCards, int targetWeight) {
-    // 简化实现：暂时返回空
-    return [];
-  }
-
-  // 寻找更大的四带二
-  List<PlayingCard> _findLargerFourWithTwo(
-      List<PlayingCard> aiCards, int targetWeight) {
-    // 简化实现：暂时返回空
-    return [];
-  }
-
-  // 寻找炸弹
-  List<PlayingCard> _findBombPlay(List<PlayingCard> aiCards) {
-    for (int i = 0; i < aiCards.length - 3; i++) {
-      if (aiCards[i].value == aiCards[i + 1].value &&
-          aiCards[i + 1].value == aiCards[i + 2].value &&
-          aiCards[i + 2].value == aiCards[i + 3].value) {
-        return [aiCards[i], aiCards[i + 1], aiCards[i + 2], aiCards[i + 3]];
-      }
-    }
-    return [];
-  }
-
-  // 寻找王炸
-  List<PlayingCard> _findRocketPlay(List<PlayingCard> aiCards) {
-    PlayingCard? smallJoker;
-    PlayingCard? bigJoker;
-
-    for (var card in aiCards) {
-      if (card.rank == Rank.smallJoker) smallJoker = card;
-      if (card.rank == Rank.bigJoker) bigJoker = card;
-    }
-
-    if (smallJoker != null && bigJoker != null) {
-      return [smallJoker, bigJoker];
-    }
-    return [];
+    return playCards;
   }
 
   // 更新分数
@@ -1179,6 +871,9 @@ class GameProvider extends ChangeNotifier {
     _isSpring = false;
     _isAntiSpring = false;
 
+    // 重置AI服务
+    AIService().reset();
+
     notifyListeners();
   }
 
@@ -1204,6 +899,11 @@ class GameProvider extends ChangeNotifier {
       case PlayerType.rightAI:
         return '右家';
     }
+  }
+
+  // 获取AI记牌信息（用于调试）
+  Map<String, dynamic> getAIMemoryInfo() {
+    return AIService().getMemoryInfo();
   }
 
   @override

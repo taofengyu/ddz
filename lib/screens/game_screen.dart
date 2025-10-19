@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../widgets/card_widget.dart';
+import '../widgets/ai_debug_panel.dart';
 import '../models/card.dart';
 import '../services/audio_service.dart';
 
@@ -118,6 +119,9 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ],
                 ),
+
+                // AI调试面板
+                const AIDebugPanel(),
 
                 // 游戏结束弹框
                 if (gameProvider.gameState == GameState.finished)
@@ -448,33 +452,10 @@ class _GameScreenState extends State<GameScreen> {
                                 .floor();
                         if (cardsPerRow <= 0) cardsPerRow = 1;
 
-                        // 计算需要多少行
-                        int totalRows =
-                            (gameProvider.leftAILastPlayContent.length /
-                                    cardsPerRow)
-                                .ceil();
-                        double rowHeight = cardHeight + 10; // 行高加上间距
-
-                        // 对卡片按大小排序
+                        // 对卡片按大小排序（从大到小）
                         List<PlayingCard> sortedCards = List<PlayingCard>.from(
                             gameProvider.leftAILastPlayContent);
-                        sortedCards.sort((a, b) => a.value.compareTo(b.value));
-
-                        // 调试输出
-                        print(
-                            'LeftAI - availableHeight: $availableHeight, totalRows: $totalRows, rowHeight: $rowHeight');
-                        print(
-                            'LeftAI cards: ${gameProvider.leftAILastPlayContent.length}, sortedCards: ${sortedCards.length}');
-                        print('LeftAI lastPlayer: ${gameProvider.lastPlayer}');
-                        print('LeftAI gameState: ${gameProvider.gameState}');
-
-                        // 检查是否有出牌数据
-                        if (gameProvider.leftAILastPlayContent.isEmpty) {
-                          print('LeftAI: No cards to display');
-                        } else {
-                          print(
-                              'LeftAI: Has ${gameProvider.leftAILastPlayContent.length} cards to display');
-                        }
+                        sortedCards.sort((a, b) => b.value.compareTo(a.value));
 
                         return Container(
                           width: constraints.maxWidth,
@@ -534,24 +515,10 @@ class _GameScreenState extends State<GameScreen> {
             child: Align(
               alignment: Alignment.bottomCenter, // 靠底部居中
 
-              child: (() {
-                print('玩家区域显示条件检查:');
-                print(
-                    '  shouldShowPlayerPass: ${gameProvider.shouldShowPlayerPass}');
-                print(
-                    '  shouldShowPlayerPassState: ${gameProvider.shouldShowPlayerPassState}');
-                print(
-                    '  shouldKeepPlayerPlayState: ${gameProvider.shouldKeepPlayerPlayState}');
-                print(
-                    '  playerLastPlayContent.isNotEmpty: ${gameProvider.playerLastPlayContent.isNotEmpty}');
-                print(
-                    '  playerLastPlayContent: ${gameProvider.playerLastPlayContent.map((c) => '${c.rank}(${c.value})').toList()}');
-
-                return (gameProvider.gameState == GameState.playing) &&
-                    (gameProvider.shouldShowPlayerPassState ||
-                        (gameProvider.shouldKeepPlayerPlayState &&
-                            gameProvider.playerLastPlayContent.isNotEmpty));
-              })()
+              child: (gameProvider.gameState == GameState.playing) &&
+                      (gameProvider.shouldShowPlayerPassState ||
+                          (gameProvider.shouldKeepPlayerPlayState &&
+                              gameProvider.playerLastPlayContent.isNotEmpty))
                   ? LayoutBuilder(
                       builder: (context, constraints) {
                         // 保持卡片大小不变
@@ -582,22 +549,10 @@ class _GameScreenState extends State<GameScreen> {
                                 .ceil();
                         double rowHeight = cardHeight + 10; // 行高加上间距
 
-                        // 调试输出
-                        print(
-                            'Player cards: ${gameProvider.playerLastPlayContent.length}, maxWidth: ${constraints.maxWidth}, cardsPerRow: $cardsPerRow, totalRows: $totalRows');
-
-                        // 调试居中计算
-                        double totalRowWidth =
-                            cardsPerRow * overlap + cardWidth - overlap;
-                        double centerOffset =
-                            (constraints.maxWidth - totalRowWidth) / 2;
-                        print(
-                            'Player - totalRowWidth: $totalRowWidth, centerOffset: $centerOffset');
-
-                        // 对卡片按大小排序
+                        // 对卡片按大小排序（从大到小）
                         List<PlayingCard> sortedCards = List<PlayingCard>.from(
                             gameProvider.playerLastPlayContent);
-                        sortedCards.sort((a, b) => a.value.compareTo(b.value));
+                        sortedCards.sort((a, b) => b.value.compareTo(a.value));
 
                         return Container(
                           width: constraints.maxWidth,
@@ -687,40 +642,10 @@ class _GameScreenState extends State<GameScreen> {
                                 .floor();
                         if (cardsPerRow <= 0) cardsPerRow = 1;
 
-                        // 计算需要多少行
-                        int totalRows =
-                            (gameProvider.rightAILastPlayContent.length /
-                                    cardsPerRow)
-                                .ceil();
-                        double rowHeight = cardHeight + 10; // 行高加上间距
-
-                        // 对卡片按大小排序
+                        // 对卡片按大小排序（从大到小）
                         List<PlayingCard> sortedCards = List<PlayingCard>.from(
                             gameProvider.rightAILastPlayContent);
-                        sortedCards.sort((a, b) => a.value.compareTo(b.value));
-
-                        // 检查是否有出牌数据
-                        print(
-                            'RightAI - availableHeight: $availableHeight, totalRows: $totalRows, rowHeight: $rowHeight');
-                        print(
-                            'RightAI cards: ${gameProvider.rightAILastPlayContent.length}, sortedCards: ${sortedCards.length}');
-                        print('RightAI lastPlayer: ${gameProvider.lastPlayer}');
-                        print('RightAI gameState: ${gameProvider.gameState}');
-
-                        if (gameProvider.rightAILastPlayContent.isEmpty) {
-                          print('RightAI: No cards to display');
-                        } else {
-                          print(
-                              'RightAI: Has ${gameProvider.rightAILastPlayContent.length} cards to display');
-                        }
-
-                        // 调试输出
-                        print(
-                            'RightAI - availableHeight: $availableHeight, totalRows: $totalRows, rowHeight: $rowHeight');
-
-                        // 调试输出
-                        print(
-                            'RightAI cards: ${gameProvider.rightAILastPlayContent.length}, sortedCards: ${sortedCards.length}');
+                        sortedCards.sort((a, b) => b.value.compareTo(a.value));
 
                         return Container(
                           width: constraints.maxWidth,
@@ -1072,14 +997,6 @@ class _GameScreenState extends State<GameScreen> {
                                   (gameProvider.lastPlay.isNotEmpty ||
                                       gameProvider.shouldContinuePlay))
                               ? () {
-                                  print(
-                                      '不出按钮点击 - 当前玩家: ${gameProvider.currentPlayer}');
-                                  print(
-                                      '不出按钮点击 - lastPlay: ${gameProvider.lastPlay.map((c) => '${c.rank}(${c.value})').toList()}');
-                                  print(
-                                      '不出按钮点击 - currentPlay: ${gameProvider.currentPlay.map((c) => '${c.rank}(${c.value})').toList()}');
-                                  print(
-                                      '不出按钮点击 - shouldContinuePlay: ${gameProvider.shouldContinuePlay}');
                                   // 只播放过牌音效，不播放按钮点击音效
                                   gameProvider.pass();
                                 }
