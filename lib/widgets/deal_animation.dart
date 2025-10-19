@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 import '../models/card.dart';
 import '../widgets/card_widget.dart';
+import '../services/audio_service.dart';
 
 class DealAnimation extends StatefulWidget {
   final List<PlayingCard> cards;
@@ -49,6 +51,10 @@ class _DealAnimationState extends State<DealAnimation> {
   }
 
   void _startDealing() {
+    // 发牌开始时播放一次音效
+    print('发牌动画开始，测试音效播放');
+    AudioService().playCardDeal();
+
     const int perCard = 30; // 每张牌的固定间隔（毫秒）- 加快发牌速度
     for (int i = 0; i < widget.cards.length; i++) {
       Future.delayed(Duration(milliseconds: perCard * i), () {
@@ -57,6 +63,13 @@ class _DealAnimationState extends State<DealAnimation> {
           _dealtCards.add(widget.cards[i]);
           _currentCardIndex = i;
         });
+
+        // 播放发牌音效 - 只在特定牌播放，避免过于频繁
+        if (i % 3 == 0) {
+          // 每6张牌播放一次，减少频率
+          print('播放发牌音效 - 第${i + 1}张牌');
+          AudioService().playCardDeal();
+        }
 
         // 如果是玩家牌且到达目标位置，延迟翻牌
         final bool isPlayerCard = (i % 3) == 0;
